@@ -7,6 +7,7 @@ import os
 st.set_page_config(
     page_title="Luna - TCG TECH",
     page_icon="🌙",
+    layout="wide",
     menu_items={
         'Get Help': None,
         'Report a bug': None,
@@ -55,53 +56,72 @@ def try_next_model():
     st.session_state.current_model_index = (st.session_state.current_model_index + 1) % len(GEMINI_MODELS)
     return GEMINI_MODELS[st.session_state.current_model_index]
 
-# Streamlit UI
-st.title("🌙 Luna")
-current_model = GEMINI_MODELS[st.session_state.current_model_index]
+# Initialize theme state
+if "theme" not in st.session_state:
+    st.session_state.theme = "light"
 
-# Theme toggle in the same row as caption
-col1, col2 = st.columns([4, 1])
-with col1:
-    st.caption(f"Powered by TCG TECH | Model: {current_model}")
-with col2:
-    if "theme" not in st.session_state:
-        st.session_state.theme = "light"
-    
-    theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
-    if st.button(theme_icon, key="theme_toggle", help="Toggle theme"):
-        st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
-        st.rerun()
-
-# Hide Streamlit menu, footer, and deploy button (including mobile view)
+# Comprehensive CSS to hide all Streamlit branding and style theme toggle
 hide_streamlit_style = """
 <style>
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
-.stDeployButton {display:none;}
-[data-testid="stToolbar"] {display: none;}
-.viewerBadge_container__1QSob {display: none;}
-.styles_viewerBadge__1yB5_ {display: none;}
-a[href*="streamlit.io"] {display: none;}
-.viewerBadge_link__1S137 {display: none;}
-.viewerBadge_text__1JaDK {display: none;}
-footer > div {display: none;}
-.css-164nlkn {display: none;}
-.css-1dp5vir {display: none;}
+/* Hide all Streamlit branding */
+#MainMenu {visibility: hidden !important;}
+footer {visibility: hidden !important;}
+header {visibility: hidden !important;}
+.stDeployButton {display: none !important;}
+[data-testid="stToolbar"] {display: none !important;}
+.viewerBadge_container__1QSob {display: none !important;}
+.styles_viewerBadge__1yB5_ {display: none !important;}
+a[href*="streamlit.io"] {display: none !important;}
+.viewerBadge_link__1S137 {display: none !important;}
+.viewerBadge_text__1JaDK {display: none !important;}
+footer > div {display: none !important;}
+.css-164nlkn {display: none !important;}
+.css-1dp5vir {display: none !important;}
+div[data-testid="stStatusWidget"] {display: none !important;}
+#MainMenu {display: none !important;}
+footer {display: none !important;}
+.stApp footer {display: none !important;}
+.stApp > footer {display: none !important;}
+button[kind="header"] {display: none !important;}
+
+/* Position theme toggle button to top right */
+.stButton {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 999999;
+}
+
+/* Hide warning messages */
+.stAlert {display: none !important;}
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# Apply theme
+# Apply full theme
 if st.session_state.theme == "dark":
     dark_theme = """
     <style>
     .stApp {
-        background-color: #0E1117;
-        color: #FAFAFA;
+        background-color: #0E1117 !important;
+        color: #FAFAFA !important;
+    }
+    .stApp > header {
+        background-color: #0E1117 !important;
     }
     .stChatMessage {
-        background-color: #262730;
+        background-color: #262730 !important;
+        color: #FAFAFA !important;
+    }
+    .stChatInput {
+        background-color: #262730 !important;
+    }
+    .stTextInput > div > div > input {
+        background-color: #262730 !important;
+        color: #FAFAFA !important;
+    }
+    div[data-baseweb="base-input"] {
+        background-color: #262730 !important;
     }
     </style>
     """
@@ -110,15 +130,26 @@ else:
     light_theme = """
     <style>
     .stApp {
-        background-color: #FFFFFF;
-        color: #262730;
+        background-color: #FFFFFF !important;
+        color: #262730 !important;
     }
     .stChatMessage {
-        background-color: #F0F2F6;
+        background-color: #F0F2F6 !important;
+        color: #262730 !important;
     }
     </style>
     """
     st.markdown(light_theme, unsafe_allow_html=True)
+
+# Theme toggle button (will appear top right due to CSS)
+theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
+if st.button(theme_icon, key="theme_toggle", help="Toggle theme"):
+    st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
+    st.rerun()
+
+# Streamlit UI
+st.title("🌙 Luna")
+st.caption("Powered by TCG TECH")
 
 # Initialize chat history
 if "messages" not in st.session_state:
@@ -136,7 +167,7 @@ if prompt := st.chat_input("What would you like to know?"):
     with st.chat_message("user"):
         st.markdown(prompt)
     
-    # Get AI response with fallback
+    # Get AI response with fallback (silent switching)
     with st.chat_message("assistant"):
         max_retries = len(GEMINI_MODELS)
         response_content = None
@@ -152,15 +183,12 @@ if prompt := st.chat_input("What would you like to know?"):
             except Exception as e:
                 error_msg = str(e)
                 if "quota" in error_msg.lower() or "limit" in error_msg.lower() or "not found" in error_msg.lower() or "404" in error_msg:
-                    next_model = try_next_model()
+                    try_next_model()
                     if attempt < max_retries - 1:
-                        st.warning(f"Switching to {next_model}...")
                         continue
                     else:
-                        st.error("All models exhausted. Please try again later.")
                         response_content = "Sorry, I'm unable to respond right now. Please try again later."
                 else:
-                    st.error(f"Error: {error_msg}")
                     response_content = "Sorry, an error occurred. Please try again."
                 break
         
