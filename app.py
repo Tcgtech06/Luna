@@ -118,11 +118,11 @@ footer a, footer img, footer svg {
     display: none !important;
 }
 
-/* Position theme toggle button to top right */
+/* Position theme toggle button to TOP LEFT */
 .stButton {
     position: fixed;
     top: 10px;
-    right: 10px;
+    left: 10px;
     z-index: 999999;
 }
 
@@ -175,10 +175,12 @@ footer a, footer img, footer svg {
     z-index: 999999 !important;
 }
 
-/* File uploader styling */
-.stExpander {
-    border-radius: 10px !important;
-    margin-bottom: 20px !important;
+/* File uploader in bottom bar */
+.upload-container {
+    position: fixed;
+    bottom: 70px;
+    left: 20px;
+    z-index: 999998;
 }
 </style>
 """
@@ -288,7 +290,7 @@ else:
     """
     st.markdown(light_theme, unsafe_allow_html=True)
 
-# Theme toggle button (will appear top right due to CSS)
+# Theme toggle button (will appear TOP LEFT due to CSS)
 theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
 if st.button(theme_icon, key="theme_toggle", help="Toggle theme"):
     st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
@@ -310,19 +312,8 @@ if "messages" not in st.session_state:
 if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = []
 
-# File upload section
-with st.expander("📎 Upload Images or Files", expanded=False):
-    uploaded_files = st.file_uploader(
-        "Upload images or documents to ask Luna about them",
-        type=["png", "jpg", "jpeg", "gif", "bmp", "pdf", "txt", "doc", "docx"],
-        accept_multiple_files=True,
-        key="file_uploader"
-    )
-    if uploaded_files:
-        st.session_state.uploaded_files = uploaded_files
-        st.success(f"✅ {len(uploaded_files)} file(s) uploaded successfully!")
-        for file in uploaded_files:
-            st.write(f"📄 {file.name}")
+if "show_uploader" not in st.session_state:
+    st.session_state.show_uploader = False
 
 # Display chat history with modern avatars
 for message in st.session_state.messages:
@@ -335,6 +326,28 @@ for message in st.session_state.messages:
     else:
         with st.chat_message("assistant", avatar="🌙"):
             st.markdown(message["content"])
+
+# File upload button - positioned at bottom left
+upload_col1, upload_col2 = st.columns([1, 10])
+with upload_col1:
+    if st.button("📎", key="upload_btn", help="Upload files"):
+        st.session_state.show_uploader = not st.session_state.show_uploader
+
+# Show file uploader if button clicked
+if st.session_state.show_uploader:
+    st.markdown("---")
+    uploaded_files = st.file_uploader(
+        "Upload images or documents to ask Luna about them",
+        type=["png", "jpg", "jpeg", "gif", "bmp", "pdf", "txt", "doc", "docx"],
+        accept_multiple_files=True,
+        key="file_uploader"
+    )
+    if uploaded_files:
+        st.session_state.uploaded_files = uploaded_files
+        st.success(f"✅ {len(uploaded_files)} file(s) uploaded!")
+        for file in uploaded_files:
+            st.caption(f"📄 {file.name}")
+    st.markdown("---")
 
 # Chat input
 if prompt := st.chat_input("What would you like to know?"):
