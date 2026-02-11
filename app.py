@@ -1,7 +1,18 @@
 import streamlit as st
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 import os
+
+# Set page config to hide menu and footer
+st.set_page_config(
+    page_title="Luna - TCG TECH",
+    page_icon="🌙",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': None
+    }
+)
 
 # Set API key from Streamlit secrets or environment
 try:
@@ -29,6 +40,12 @@ GEMINI_MODELS = [
 if "current_model_index" not in st.session_state:
     st.session_state.current_model_index = 0
 
+# System prompt for Luna
+SYSTEM_PROMPT = """You are Luna, a helpful AI assistant created by TCG TECH. 
+When someone asks your name in any language (like "What is your name?", "unoda peru ena?", "உன் பெயர் என்ன?"), 
+respond that your name is Luna (in Tamil: "என் பெயர் Luna" or "enoda peru Luna").
+You are friendly, helpful, and always ready to assist users with their questions."""
+
 def get_llm():
     model_name = GEMINI_MODELS[st.session_state.current_model_index]
     return ChatGoogleGenerativeAI(model=model_name, temperature=0.7)
@@ -42,6 +59,18 @@ def try_next_model():
 st.title("🌙 Luna")
 current_model = GEMINI_MODELS[st.session_state.current_model_index]
 st.caption(f"Powered by TCG TECH | Model: {current_model}")
+
+# Hide Streamlit menu, footer, and deploy button
+hide_streamlit_style = """
+<style>
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+.stDeployButton {display:none;}
+[data-testid="stToolbar"] {display: none;}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Initialize chat history
 if "messages" not in st.session_state:
@@ -67,7 +96,9 @@ if prompt := st.chat_input("What would you like to know?"):
         for attempt in range(max_retries):
             try:
                 llm = get_llm()
-                response = llm.invoke([HumanMessage(content=prompt)])
+                # Include system prompt with user message
+                messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=prompt)]
+                response = llm.invoke(messages)
                 response_content = response.content
                 break
             except Exception as e:
