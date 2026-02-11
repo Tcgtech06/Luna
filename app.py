@@ -168,6 +168,7 @@ footer a, footer img, footer svg {
     right: 0 !important;
     z-index: 999999 !important;
     background-color: inherit !important;
+    padding: 10px !important;
 }
 
 .stChatInput {
@@ -175,12 +176,27 @@ footer a, footer img, footer svg {
     z-index: 999999 !important;
 }
 
-/* File uploader in bottom bar */
-.upload-container {
-    position: fixed;
-    bottom: 70px;
-    left: 20px;
-    z-index: 999998;
+/* File uploader styling - make it small icon */
+[data-testid="stFileUploader"] {
+    width: 50px !important;
+}
+
+[data-testid="stFileUploader"] > div {
+    padding: 0 !important;
+}
+
+[data-testid="stFileUploader"] label {
+    font-size: 24px !important;
+    cursor: pointer !important;
+}
+
+[data-testid="stFileUploader"] section {
+    display: none !important;
+}
+
+/* Hide file uploader text */
+[data-testid="stFileUploader"] > label > div {
+    display: none !important;
 }
 </style>
 """
@@ -327,30 +343,28 @@ for message in st.session_state.messages:
         with st.chat_message("assistant", avatar="🌙"):
             st.markdown(message["content"])
 
-# File upload button - positioned at bottom left
-upload_col1, upload_col2 = st.columns([1, 10])
-with upload_col1:
-    if st.button("📎", key="upload_btn", help="Upload files"):
-        st.session_state.show_uploader = not st.session_state.show_uploader
+# File upload section - INLINE with chat input
+col1, col2 = st.columns([0.5, 9.5])
 
-# Show file uploader if button clicked
-if st.session_state.show_uploader:
-    st.markdown("---")
+with col1:
     uploaded_files = st.file_uploader(
-        "Upload images or documents to ask Luna about them",
+        "📎",
         type=["png", "jpg", "jpeg", "gif", "bmp", "pdf", "txt", "doc", "docx"],
         accept_multiple_files=True,
-        key="file_uploader"
+        key="file_uploader",
+        label_visibility="collapsed"
     )
     if uploaded_files:
         st.session_state.uploaded_files = uploaded_files
-        st.success(f"✅ {len(uploaded_files)} file(s) uploaded!")
-        for file in uploaded_files:
-            st.caption(f"📄 {file.name}")
-    st.markdown("---")
 
-# Chat input
-if prompt := st.chat_input("What would you like to know?"):
+with col2:
+    # Chat input
+    prompt = st.chat_input("What would you like to know?")
+
+if uploaded_files:
+    st.caption(f"✅ {len(uploaded_files)} file(s) attached")
+
+if prompt:
     # Prepare file context
     file_context = ""
     file_names = []
