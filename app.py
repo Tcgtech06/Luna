@@ -2,6 +2,9 @@ import streamlit as st
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 import os
+from PIL import Image
+import base64
+from io import BytesIO
 
 # Set page config to hide menu and footer
 st.set_page_config(
@@ -156,6 +159,27 @@ footer a, footer img, footer svg {
     padding: 12px 20px !important;
     font-size: 16px !important;
 }
+
+/* FORCE chat input to overlay bottom logos */
+[data-testid="stBottom"] {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 999999 !important;
+    background-color: inherit !important;
+}
+
+.stChatInput {
+    position: relative !important;
+    z-index: 999999 !important;
+}
+
+/* File uploader styling */
+.stExpander {
+    border-radius: 10px !important;
+    margin-bottom: 20px !important;
+}
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -270,29 +294,69 @@ if st.button(theme_icon, key="theme_toggle", help="Toggle theme"):
     st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
     st.rerun()
 
-# Streamlit UI
-st.title("🌙 Luna")
-st.caption("Powered by TCG TECH")
+# Streamlit UI - Title at top
+st.markdown("""
+<div style="position: fixed; top: 0; left: 0; right: 0; z-index: 999; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); text-align: center;">
+    <h1 style="color: white; margin: 0; font-size: 32px;">🌙 Luna</h1>
+    <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0 0; font-size: 14px;">Powered by TCG TECH</p>
+</div>
+<div style="height: 100px;"></div>
+""", unsafe_allow_html=True)
 
 # Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
+if "uploaded_files" not in st.session_state:
+    st.session_state.uploaded_files = []
+
+# File upload section
+with st.expander("📎 Upload Images or Files", expanded=False):
+    uploaded_files = st.file_uploader(
+        "Upload images or documents to ask Luna about them",
+        type=["png", "jpg", "jpeg", "gif", "bmp", "pdf", "txt", "doc", "docx"],
+        accept_multiple_files=True,
+        key="file_uploader"
+    )
+    if uploaded_files:
+        st.session_state.uploaded_files = uploaded_files
+        st.success(f"✅ {len(uploaded_files)} file(s) uploaded successfully!")
+        for file in uploaded_files:
+            st.write(f"📄 {file.name}")
 
 # Display chat history with modern avatars
 for message in st.session_state.messages:
     if message["role"] == "user":
         with st.chat_message("user", avatar="👤"):
             st.markdown(message["content"])
+            if "files" in message and message["files"]:
+                for file_info in message["files"]:
+                    st.caption(f"📎 {file_info}")
     else:
         with st.chat_message("assistant", avatar="🌙"):
             st.markdown(message["content"])
 
 # Chat input
 if prompt := st.chat_input("What would you like to know?"):
+    # Prepare file context
+    file_context = ""
+    file_names = []
+    
+    if st.session_state.uploaded_files:
+        file_names = [f.name for f in st.session_state.uploaded_files]
+        file_context = f"\n\n[User has uploaded {len(file_names)} file(s): {', '.join(file_names)}. Please acknowledge these files in your response if relevant to the question.]"
+    
     # Add user message with modern avatar
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    user_message = {"role": "user", "content": prompt}
+    if file_names:
+        user_message["files"] = file_names
+    st.session_state.messages.append(user_message)
+    
     with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
+        if file_names:
+            for fname in file_names:
+                st.caption(f"📎 {fname}")
     
     # Get AI response with fallback (silent switching) and typing animation
     with st.chat_message("assistant", avatar="🌙"):
@@ -321,11 +385,14 @@ if prompt := st.chat_input("What would you like to know?"):
         max_retries = len(GEMINI_MODELS)
         response_content = None
         
+        # Enhance prompt with file context
+        enhanced_prompt = prompt + file_context
+        
         for attempt in range(max_retries):
             try:
                 llm = get_llm()
                 # Include system prompt with user message
-                messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=prompt)]
+                messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=enhanced_prompt)]
                 response = llm.invoke(messages)
                 response_content = response.content
                 break
