@@ -63,26 +63,32 @@ if "theme" not in st.session_state:
 # Comprehensive CSS to hide all Streamlit branding and style theme toggle
 hide_streamlit_style = """
 <style>
-/* Hide all Streamlit branding */
-#MainMenu {visibility: hidden !important;}
-footer {visibility: hidden !important;}
-header {visibility: hidden !important;}
+/* Hide all Streamlit branding - AGGRESSIVE */
+#MainMenu {visibility: hidden !important; display: none !important;}
+footer {visibility: hidden !important; display: none !important;}
+header {visibility: hidden !important; display: none !important;}
 .stDeployButton {display: none !important;}
 [data-testid="stToolbar"] {display: none !important;}
 .viewerBadge_container__1QSob {display: none !important;}
 .styles_viewerBadge__1yB5_ {display: none !important;}
 a[href*="streamlit.io"] {display: none !important;}
+a[href*="github.com"] {display: none !important;}
 .viewerBadge_link__1S137 {display: none !important;}
 .viewerBadge_text__1JaDK {display: none !important;}
 footer > div {display: none !important;}
 .css-164nlkn {display: none !important;}
 .css-1dp5vir {display: none !important;}
 div[data-testid="stStatusWidget"] {display: none !important;}
-#MainMenu {display: none !important;}
-footer {display: none !important;}
+button[kind="header"] {display: none !important;}
 .stApp footer {display: none !important;}
 .stApp > footer {display: none !important;}
-button[kind="header"] {display: none !important;}
+
+/* Mobile specific - hide bottom badges */
+.stApp [data-testid="stBottomBlockContainer"] a {display: none !important;}
+.stApp [data-testid="stBottomBlockContainer"] img {display: none !important;}
+div[class*="viewerBadge"] {display: none !important;}
+a[class*="viewerBadge"] {display: none !important;}
+svg[class*="viewerBadge"] {display: none !important;}
 
 /* Position theme toggle button to top right */
 .stButton {
@@ -111,15 +117,39 @@ if st.session_state.theme == "dark":
         background-color: #1E1E1E !important;
     }
     
+    /* Main container */
+    .main {
+        background-color: #1E1E1E !important;
+    }
+    
+    /* Block container */
+    .block-container {
+        background-color: #1E1E1E !important;
+    }
+    
     /* Chat messages */
     .stChatMessage {
         background-color: #2D2D2D !important;
         color: #E0E0E0 !important;
     }
     
-    /* Chat input container and all its children */
+    /* Bottom block container - FIX WHITE AREA */
+    [data-testid="stBottomBlockContainer"] {
+        background-color: #1E1E1E !important;
+    }
+    
+    /* Chat input container - FIX WHITE AREA */
+    [data-testid="stBottom"] {
+        background-color: #1E1E1E !important;
+    }
+    
+    .stBottom {
+        background-color: #1E1E1E !important;
+    }
+    
+    /* Chat input styling */
     .stChatInput {
-        background-color: #2D2D2D !important;
+        background-color: #1E1E1E !important;
     }
     .stChatInput > div {
         background-color: #2D2D2D !important;
@@ -129,33 +159,8 @@ if st.session_state.theme == "dark":
         color: #E0E0E0 !important;
         border-color: #404040 !important;
     }
-    .stChatInput input {
-        background-color: #2D2D2D !important;
-        color: #E0E0E0 !important;
-    }
     
-    /* Text input styling */
-    .stTextInput > div > div > input {
-        background-color: #2D2D2D !important;
-        color: #E0E0E0 !important;
-        border-color: #404040 !important;
-    }
-    div[data-baseweb="base-input"] {
-        background-color: #2D2D2D !important;
-    }
-    div[data-baseweb="input"] {
-        background-color: #2D2D2D !important;
-    }
-    
-    /* Chat input bottom section */
-    section[data-testid="stChatInput"] {
-        background-color: #2D2D2D !important;
-    }
-    section[data-testid="stChatInput"] > div {
-        background-color: #2D2D2D !important;
-    }
-    
-    /* Input field wrapper */
+    /* Chat input text area */
     div[data-testid="stChatInputTextArea"] {
         background-color: #2D2D2D !important;
     }
@@ -164,15 +169,23 @@ if st.session_state.theme == "dark":
         color: #E0E0E0 !important;
     }
     
-    /* Bottom container */
-    .stBottom {
-        background-color: #2D2D2D !important;
+    /* All sections */
+    section {
+        background-color: #1E1E1E !important;
     }
     
-    /* All text areas */
+    /* Text areas */
     textarea {
         background-color: #2D2D2D !important;
         color: #E0E0E0 !important;
+    }
+    
+    /* Input wrappers */
+    div[data-baseweb="base-input"] {
+        background-color: #2D2D2D !important;
+    }
+    div[data-baseweb="input"] {
+        background-color: #2D2D2D !important;
     }
     </style>
     """
