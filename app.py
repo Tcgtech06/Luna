@@ -19,7 +19,7 @@ st.set_page_config(
 try:
     os.environ["GOOGLE_API_KEY"] = st.secrets["GEMINI_API_KEY"]
 except:
-    os.environ["GOOGLE_API_KEY"] = "AIzaSyBc9nlbPfYzGFIVeDz8hOcU61Ig4R7NxYc"
+    os.environ["GOOGLE_API_KEY"] = "AIzaSyB32ht69HpJiaRT06eiWy7D8_T-nJOVjuk"
 
 # Available Gemini models in order of preference
 GEMINI_MODELS = [
@@ -63,7 +63,7 @@ if "theme" not in st.session_state:
 # Comprehensive CSS to hide all Streamlit branding and style theme toggle
 hide_streamlit_style = """
 <style>
-/* Hide all Streamlit branding - AGGRESSIVE */
+/* Hide all Streamlit branding - NUCLEAR OPTION */
 #MainMenu {visibility: hidden !important; display: none !important;}
 footer {visibility: hidden !important; display: none !important;}
 header {visibility: hidden !important; display: none !important;}
@@ -83,12 +83,37 @@ button[kind="header"] {display: none !important;}
 .stApp footer {display: none !important;}
 .stApp > footer {display: none !important;}
 
-/* Mobile specific - hide bottom badges */
-.stApp [data-testid="stBottomBlockContainer"] a {display: none !important;}
-.stApp [data-testid="stBottomBlockContainer"] img {display: none !important;}
-div[class*="viewerBadge"] {display: none !important;}
-a[class*="viewerBadge"] {display: none !important;}
-svg[class*="viewerBadge"] {display: none !important;}
+/* Mobile specific - FORCE HIDE bottom badges */
+.stApp [data-testid="stBottomBlockContainer"] a {
+    display: none !important;
+    visibility: hidden !important;
+    position: absolute !important;
+    right: -9999px !important;
+}
+.stApp [data-testid="stBottomBlockContainer"] img {
+    display: none !important;
+    visibility: hidden !important;
+}
+div[class*="viewerBadge"] {
+    display: none !important;
+    position: absolute !important;
+    right: -9999px !important;
+}
+a[class*="viewerBadge"] {
+    display: none !important;
+    position: absolute !important;
+    right: -9999px !important;
+}
+svg[class*="viewerBadge"] {
+    display: none !important;
+}
+
+/* Move any remaining badges off screen */
+footer a, footer img, footer svg {
+    position: absolute !important;
+    right: -9999px !important;
+    display: none !important;
+}
 
 /* Position theme toggle button to top right */
 .stButton {
@@ -100,6 +125,37 @@ svg[class*="viewerBadge"] {display: none !important;}
 
 /* Hide warning messages */
 .stAlert {display: none !important;}
+
+/* Modern UI Enhancements */
+.stChatMessage {
+    border-radius: 15px !important;
+    padding: 15px !important;
+    margin: 10px 0 !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+}
+
+/* Smooth animations */
+.stChatMessage {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Modern input styling */
+.stChatInput textarea {
+    border-radius: 25px !important;
+    padding: 12px 20px !important;
+    font-size: 16px !important;
+}
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -222,20 +278,46 @@ st.caption("Powered by TCG TECH")
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display chat history
+# Display chat history with modern avatars
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    if message["role"] == "user":
+        with st.chat_message("user", avatar="👤"):
+            st.markdown(message["content"])
+    else:
+        with st.chat_message("assistant", avatar="🌙"):
+            st.markdown(message["content"])
 
 # Chat input
 if prompt := st.chat_input("What would you like to know?"):
-    # Add user message
+    # Add user message with modern avatar
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
     
-    # Get AI response with fallback (silent switching)
-    with st.chat_message("assistant"):
+    # Get AI response with fallback (silent switching) and typing animation
+    with st.chat_message("assistant", avatar="🌙"):
+        # Typing animation placeholder
+        message_placeholder = st.empty()
+        
+        # Show typing indicator
+        typing_html = """
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="font-size: 14px; color: #888;">Luna is typing</div>
+            <div style="display: flex; gap: 4px;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: #888; animation: bounce 1.4s infinite ease-in-out both; animation-delay: -0.32s;"></div>
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: #888; animation: bounce 1.4s infinite ease-in-out both; animation-delay: -0.16s;"></div>
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: #888; animation: bounce 1.4s infinite ease-in-out both;"></div>
+            </div>
+        </div>
+        <style>
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        </style>
+        """
+        message_placeholder.markdown(typing_html, unsafe_allow_html=True)
+        
         max_retries = len(GEMINI_MODELS)
         response_content = None
         
@@ -259,7 +341,8 @@ if prompt := st.chat_input("What would you like to know?"):
                     response_content = "Sorry, an error occurred. Please try again."
                 break
         
-        st.markdown(response_content)
+        # Replace typing indicator with actual response
+        message_placeholder.markdown(response_content)
     
     # Add assistant message
     st.session_state.messages.append({"role": "assistant", "content": response_content})
