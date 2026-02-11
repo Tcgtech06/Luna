@@ -194,23 +194,6 @@ button[key="theme_toggle"]:hover {
     right: 10px !important;
     z-index: 999998 !important;
 }
-
-/* Style the upload toggle button like theme button */
-button[key="upload_toggle"] {
-    width: 50px !important;
-    height: 50px !important;
-    border-radius: 50% !important;
-    padding: 0 !important;
-    font-size: 24px !important;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-    border: none !important;
-    color: white !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
-    position: fixed !important;
-    bottom: 20px !important;
-    left: 20px !important;
-    z-index: 999999 !important;
-}
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
