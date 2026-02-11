@@ -102,26 +102,77 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 if st.session_state.theme == "dark":
     dark_theme = """
     <style>
+    /* Main app background - light dark */
     .stApp {
-        background-color: #0E1117 !important;
-        color: #FAFAFA !important;
+        background-color: #1E1E1E !important;
+        color: #E0E0E0 !important;
     }
     .stApp > header {
-        background-color: #0E1117 !important;
+        background-color: #1E1E1E !important;
     }
+    
+    /* Chat messages */
     .stChatMessage {
-        background-color: #262730 !important;
-        color: #FAFAFA !important;
+        background-color: #2D2D2D !important;
+        color: #E0E0E0 !important;
     }
+    
+    /* Chat input container and all its children */
     .stChatInput {
-        background-color: #262730 !important;
+        background-color: #2D2D2D !important;
     }
+    .stChatInput > div {
+        background-color: #2D2D2D !important;
+    }
+    .stChatInput textarea {
+        background-color: #2D2D2D !important;
+        color: #E0E0E0 !important;
+        border-color: #404040 !important;
+    }
+    .stChatInput input {
+        background-color: #2D2D2D !important;
+        color: #E0E0E0 !important;
+    }
+    
+    /* Text input styling */
     .stTextInput > div > div > input {
-        background-color: #262730 !important;
-        color: #FAFAFA !important;
+        background-color: #2D2D2D !important;
+        color: #E0E0E0 !important;
+        border-color: #404040 !important;
     }
     div[data-baseweb="base-input"] {
-        background-color: #262730 !important;
+        background-color: #2D2D2D !important;
+    }
+    div[data-baseweb="input"] {
+        background-color: #2D2D2D !important;
+    }
+    
+    /* Chat input bottom section */
+    section[data-testid="stChatInput"] {
+        background-color: #2D2D2D !important;
+    }
+    section[data-testid="stChatInput"] > div {
+        background-color: #2D2D2D !important;
+    }
+    
+    /* Input field wrapper */
+    div[data-testid="stChatInputTextArea"] {
+        background-color: #2D2D2D !important;
+    }
+    div[data-testid="stChatInputTextArea"] textarea {
+        background-color: #2D2D2D !important;
+        color: #E0E0E0 !important;
+    }
+    
+    /* Bottom container */
+    .stBottom {
+        background-color: #2D2D2D !important;
+    }
+    
+    /* All text areas */
+    textarea {
+        background-color: #2D2D2D !important;
+        color: #E0E0E0 !important;
     }
     </style>
     """
@@ -136,6 +187,9 @@ else:
     .stChatMessage {
         background-color: #F0F2F6 !important;
         color: #262730 !important;
+    }
+    .stChatInput {
+        background-color: #FFFFFF !important;
     }
     </style>
     """
