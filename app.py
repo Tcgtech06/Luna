@@ -119,16 +119,11 @@ footer a, footer img, footer svg {
 }
 
 /* Position theme toggle button to TOP LEFT - SMALL CIRCULAR */
-.stButton {
+button[key="theme_toggle"] {
     position: fixed !important;
     top: 15px !important;
     left: 15px !important;
     z-index: 99999 !important;
-    width: 45px !important;
-    height: 45px !important;
-}
-
-.stButton > button {
     width: 45px !important;
     height: 45px !important;
     border-radius: 50% !important;
@@ -141,7 +136,7 @@ footer a, footer img, footer svg {
     justify-content: center !important;
 }
 
-.stButton > button:hover {
+button[key="theme_toggle"]:hover {
     background-color: rgba(255, 255, 255, 0.3) !important;
     transform: scale(1.1) !important;
     transition: all 0.2s ease !important;
@@ -364,7 +359,7 @@ for message in st.session_state.messages:
 # Bottom bar with file upload button and chat input
 st.markdown("""
 <style>
-/* File upload button - circular at BOTTOM LEFT */
+/* Upload button - circular at BOTTOM LEFT with + icon */
 button[key="upload_toggle"] {
     position: fixed !important;
     bottom: 20px !important;
@@ -375,7 +370,7 @@ button[key="upload_toggle"] {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
     border: none !important;
     color: white !important;
-    font-size: 24px !important;
+    font-size: 28px !important;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
     z-index: 999999 !important;
     padding: 0 !important;
@@ -390,6 +385,18 @@ button[key="upload_toggle"]:hover {
     transition: all 0.2s ease !important;
 }
 
+/* Upload options popup */
+.upload-options {
+    position: fixed !important;
+    bottom: 80px !important;
+    left: 20px !important;
+    background: white !important;
+    border-radius: 15px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
+    padding: 10px !important;
+    z-index: 999998 !important;
+}
+
 /* Move chat input to bottom with margin for upload button */
 [data-testid="stChatInput"] {
     position: fixed !important;
@@ -398,40 +405,65 @@ button[key="upload_toggle"]:hover {
     right: 10px !important;
     z-index: 999998 !important;
 }
-
-/* Hide the column container for upload button */
-div[data-testid="column"]:has(button[key="upload_toggle"]) {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    width: 70px !important;
-    z-index: 999999 !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
-# File upload button - will be positioned at bottom left by CSS
-if st.button("📎", key="upload_toggle", help="Upload files"):
-    st.session_state.show_uploader = not st.session_state.get("show_uploader", False)
+# File upload button with + icon - positioned at bottom left
+if st.button("➕", key="upload_toggle", help="Upload files"):
+    st.session_state.show_upload_options = not st.session_state.get("show_upload_options", False)
 
-# Show file uploader popup if toggled
+# Show upload options popup if toggled
+if st.session_state.get("show_upload_options", False):
+    st.markdown("""
+    <div style="position: fixed; bottom: 80px; left: 20px; background: white; border-radius: 15px; 
+                box-shadow: 0 4px 20px rgba(0,0,0,0.2); padding: 15px; z-index: 999998; min-width: 150px;">
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("🖼️ Image", key="upload_image", help="Upload images"):
+            st.session_state.upload_type = "image"
+            st.session_state.show_uploader = True
+            st.session_state.show_upload_options = False
+    
+    with col2:
+        if st.button("📄 File", key="upload_file", help="Upload files"):
+            st.session_state.upload_type = "file"
+            st.session_state.show_uploader = True
+            st.session_state.show_upload_options = False
+
+# Show file uploader based on selection
 if st.session_state.get("show_uploader", False):
-    with st.container():
-        st.markdown("### 📎 Upload Files")
+    upload_type = st.session_state.get("upload_type", "image")
+    
+    if upload_type == "image":
+        st.markdown("### 🖼️ Upload Images")
         uploaded_files = st.file_uploader(
-            "Choose images or documents",
-            type=["png", "jpg", "jpeg", "gif", "bmp", "pdf", "txt", "doc", "docx"],
+            "Choose images",
+            type=["png", "jpg", "jpeg", "gif", "bmp"],
+            accept_multiple_files=True,
+            key="image_uploader"
+        )
+    else:
+        st.markdown("### 📄 Upload Files")
+        uploaded_files = st.file_uploader(
+            "Choose documents",
+            type=["pdf", "txt", "doc", "docx", "csv", "xlsx"],
             accept_multiple_files=True,
             key="file_uploader"
         )
-        if uploaded_files:
-            st.session_state.uploaded_files = uploaded_files
-            st.success(f"✅ {len(uploaded_files)} file(s) attached")
-            for file in uploaded_files:
-                st.caption(f"📄 {file.name}")
-        if st.button("Done", key="close_uploader"):
-            st.session_state.show_uploader = False
-            st.rerun()
+    
+    if uploaded_files:
+        st.session_state.uploaded_files = uploaded_files
+        st.success(f"✅ {len(uploaded_files)} file(s) attached")
+        for file in uploaded_files:
+            st.caption(f"📄 {file.name}")
+    
+    if st.button("Done", key="close_uploader"):
+        st.session_state.show_uploader = False
+        st.rerun()
 
 # Chat input
 prompt = st.chat_input("What would you like to know?")
