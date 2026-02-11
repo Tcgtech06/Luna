@@ -181,43 +181,40 @@ footer a, footer img, footer svg {
     font-size: 16px !important;
 }
 
-/* FORCE chat input to overlay bottom logos */
+/* FORCE chat input to overlay bottom logos and stay at bottom */
 [data-testid="stBottom"] {
     position: fixed !important;
     bottom: 0 !important;
-    left: 0 !important;
+    left: 80px !important;
     right: 0 !important;
-    z-index: 999999 !important;
+    z-index: 999998 !important;
     background-color: inherit !important;
     padding: 10px !important;
 }
 
 .stChatInput {
-    position: relative !important;
-    z-index: 999999 !important;
+    position: fixed !important;
+    bottom: 10px !important;
+    left: 90px !important;
+    right: 10px !important;
+    z-index: 999998 !important;
 }
 
-/* File uploader styling - make it small icon */
-[data-testid="stFileUploader"] {
+/* Style the upload toggle button like theme button */
+button[key="upload_toggle"] {
     width: 50px !important;
-}
-
-[data-testid="stFileUploader"] > div {
+    height: 50px !important;
+    border-radius: 50% !important;
     padding: 0 !important;
-}
-
-[data-testid="stFileUploader"] label {
     font-size: 24px !important;
-    cursor: pointer !important;
-}
-
-[data-testid="stFileUploader"] section {
-    display: none !important;
-}
-
-/* Hide file uploader text */
-[data-testid="stFileUploader"] > label > div {
-    display: none !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border: none !important;
+    color: white !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    position: fixed !important;
+    bottom: 20px !important;
+    left: 20px !important;
+    z-index: 999999 !important;
 }
 </style>
 """
@@ -364,26 +361,76 @@ for message in st.session_state.messages:
         with st.chat_message("assistant", avatar="🌙"):
             st.markdown(message["content"])
 
-# File upload section - INLINE with chat input
-col1, col2 = st.columns([0.5, 9.5])
+# Bottom bar with file upload button and chat input
+st.markdown("""
+<style>
+/* File upload button - circular like theme toggle */
+.upload-btn-container {
+    position: fixed !important;
+    bottom: 20px !important;
+    left: 20px !important;
+    z-index: 999999 !important;
+}
 
+.upload-btn {
+    width: 50px !important;
+    height: 50px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border: none !important;
+    color: white !important;
+    font-size: 24px !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+}
+
+.upload-btn:hover {
+    transform: scale(1.1) !important;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2) !important;
+    transition: all 0.2s ease !important;
+}
+
+/* Move chat input to bottom with margin for upload button */
+[data-testid="stChatInput"] {
+    position: fixed !important;
+    bottom: 10px !important;
+    left: 90px !important;
+    right: 10px !important;
+    z-index: 999998 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# File upload button
+col1, col2 = st.columns([1, 20])
 with col1:
-    uploaded_files = st.file_uploader(
-        "📎",
-        type=["png", "jpg", "jpeg", "gif", "bmp", "pdf", "txt", "doc", "docx"],
-        accept_multiple_files=True,
-        key="file_uploader",
-        label_visibility="collapsed"
-    )
-    if uploaded_files:
-        st.session_state.uploaded_files = uploaded_files
+    if st.button("📎", key="upload_toggle", help="Upload files"):
+        st.session_state.show_uploader = not st.session_state.get("show_uploader", False)
 
-with col2:
-    # Chat input
-    prompt = st.chat_input("What would you like to know?")
+# Show file uploader popup if toggled
+if st.session_state.get("show_uploader", False):
+    with st.container():
+        st.markdown("### 📎 Upload Files")
+        uploaded_files = st.file_uploader(
+            "Choose images or documents",
+            type=["png", "jpg", "jpeg", "gif", "bmp", "pdf", "txt", "doc", "docx"],
+            accept_multiple_files=True,
+            key="file_uploader"
+        )
+        if uploaded_files:
+            st.session_state.uploaded_files = uploaded_files
+            st.success(f"✅ {len(uploaded_files)} file(s) attached")
+            for file in uploaded_files:
+                st.caption(f"📄 {file.name}")
+        if st.button("Done", key="close_uploader"):
+            st.session_state.show_uploader = False
+            st.rerun()
 
-if uploaded_files:
-    st.caption(f"✅ {len(uploaded_files)} file(s) attached")
+# Chat input
+prompt = st.chat_input("What would you like to know?")
 
 if prompt:
     # Prepare file context
@@ -461,3 +508,4 @@ if prompt:
     
     # Add assistant message
     st.session_state.messages.append({"role": "assistant", "content": response_content})
+
