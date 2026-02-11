@@ -364,15 +364,11 @@ for message in st.session_state.messages:
 # Bottom bar with file upload button and chat input
 st.markdown("""
 <style>
-/* File upload button - circular like theme toggle */
-.upload-btn-container {
+/* File upload button - circular at BOTTOM LEFT */
+button[key="upload_toggle"] {
     position: fixed !important;
     bottom: 20px !important;
     left: 20px !important;
-    z-index: 999999 !important;
-}
-
-.upload-btn {
     width: 50px !important;
     height: 50px !important;
     border-radius: 50% !important;
@@ -380,14 +376,15 @@ st.markdown("""
     border: none !important;
     color: white !important;
     font-size: 24px !important;
-    cursor: pointer !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    z-index: 999999 !important;
+    padding: 0 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
 }
 
-.upload-btn:hover {
+button[key="upload_toggle"]:hover {
     transform: scale(1.1) !important;
     box-shadow: 0 6px 16px rgba(0,0,0,0.2) !important;
     transition: all 0.2s ease !important;
@@ -401,14 +398,21 @@ st.markdown("""
     right: 10px !important;
     z-index: 999998 !important;
 }
+
+/* Hide the column container for upload button */
+div[data-testid="column"]:has(button[key="upload_toggle"]) {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 70px !important;
+    z-index: 999999 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# File upload button
-col1, col2 = st.columns([1, 20])
-with col1:
-    if st.button("📎", key="upload_toggle", help="Upload files"):
-        st.session_state.show_uploader = not st.session_state.get("show_uploader", False)
+# File upload button - will be positioned at bottom left by CSS
+if st.button("📎", key="upload_toggle", help="Upload files"):
+    st.session_state.show_uploader = not st.session_state.get("show_uploader", False)
 
 # Show file uploader popup if toggled
 if st.session_state.get("show_uploader", False):
