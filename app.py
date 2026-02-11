@@ -58,9 +58,21 @@ def try_next_model():
 # Streamlit UI
 st.title("🌙 Luna")
 current_model = GEMINI_MODELS[st.session_state.current_model_index]
-st.caption(f"Powered by TCG TECH | Model: {current_model}")
 
-# Hide Streamlit menu, footer, and deploy button
+# Theme toggle in the same row as caption
+col1, col2 = st.columns([4, 1])
+with col1:
+    st.caption(f"Powered by TCG TECH | Model: {current_model}")
+with col2:
+    if "theme" not in st.session_state:
+        st.session_state.theme = "light"
+    
+    theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
+    if st.button(theme_icon, key="theme_toggle", help="Toggle theme"):
+        st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
+        st.rerun()
+
+# Hide Streamlit menu, footer, and deploy button (including mobile view)
 hide_streamlit_style = """
 <style>
 #MainMenu {visibility: hidden;}
@@ -68,9 +80,45 @@ footer {visibility: hidden;}
 header {visibility: hidden;}
 .stDeployButton {display:none;}
 [data-testid="stToolbar"] {display: none;}
+.viewerBadge_container__1QSob {display: none;}
+.styles_viewerBadge__1yB5_ {display: none;}
+a[href*="streamlit.io"] {display: none;}
+.viewerBadge_link__1S137 {display: none;}
+.viewerBadge_text__1JaDK {display: none;}
+footer > div {display: none;}
+.css-164nlkn {display: none;}
+.css-1dp5vir {display: none;}
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+# Apply theme
+if st.session_state.theme == "dark":
+    dark_theme = """
+    <style>
+    .stApp {
+        background-color: #0E1117;
+        color: #FAFAFA;
+    }
+    .stChatMessage {
+        background-color: #262730;
+    }
+    </style>
+    """
+    st.markdown(dark_theme, unsafe_allow_html=True)
+else:
+    light_theme = """
+    <style>
+    .stApp {
+        background-color: #FFFFFF;
+        color: #262730;
+    }
+    .stChatMessage {
+        background-color: #F0F2F6;
+    }
+    </style>
+    """
+    st.markdown(light_theme, unsafe_allow_html=True)
 
 # Initialize chat history
 if "messages" not in st.session_state:
