@@ -118,12 +118,33 @@ footer a, footer img, footer svg {
     display: none !important;
 }
 
-/* Position theme toggle button to TOP LEFT */
+/* Position theme toggle button to TOP LEFT - SMALL CIRCULAR */
 .stButton {
-    position: fixed;
-    top: 10px;
-    left: 10px;
-    z-index: 999999;
+    position: fixed !important;
+    top: 15px !important;
+    left: 15px !important;
+    z-index: 99999 !important;
+    width: 45px !important;
+    height: 45px !important;
+}
+
+.stButton > button {
+    width: 45px !important;
+    height: 45px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    font-size: 24px !important;
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    border: 2px solid rgba(255, 255, 255, 0.3) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.stButton > button:hover {
+    background-color: rgba(255, 255, 255, 0.3) !important;
+    transform: scale(1.1) !important;
+    transition: all 0.2s ease !important;
 }
 
 /* Hide warning messages */
