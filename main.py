@@ -1,5 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -60,10 +60,12 @@ def try_next_model():
     current_model_index = (current_model_index + 1) % len(GEMINI_MODELS)
     return GEMINI_MODELS[current_model_index]
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 async def read_root():
-    with open("static/index.html", "r", encoding="utf-8") as f:
-        return f.read()
+    try:
+        return FileResponse("static/index.html")
+    except Exception as e:
+        return HTMLResponse(content=f"<h1>Error loading page: {str(e)}</h1><p>Make sure static/index.html exists</p>", status_code=500)
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
@@ -105,8 +107,9 @@ async def upload_file(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
 if __name__ == "__main__":
+    # Create static directory if it doesn't exist
+    os.makedirs("static", exist_ok=True)
+    print("Starting Luna chatbot server...")
+    print("Visit: http://localhost:7860")
     uvicorn.run(app, host="0.0.0.0", port=7860)
