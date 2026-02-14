@@ -11,15 +11,10 @@ import uvicorn
 
 app = FastAPI(title="Luna - AI Chatbot by TCG TECH")
 
-# CORS middleware - Allow React frontend
+# CORS middleware - Allow React frontend from any origin
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # React dev server
-        "http://localhost:5173",  # Vite dev server
-        "https://huggingface.co",  # Hugging Face
-        "*"  # Allow all origins (remove in production for security)
-    ],
+    allow_origins=["*"],  # Allow all origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
