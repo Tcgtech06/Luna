@@ -4,56 +4,20 @@ Luna is an intelligent AI chatbot powered by Google Gemini AI, built with FastAP
 
 ## Features
 
-- 🌙 Modern, responsive UI with dark/light theme toggle
+- 🌙 Modern, responsive UI with glassmorphism design
 - 💬 Real-time chat with typing indicators
-- 📎 File and image upload support
+- 📎 Integrated file and image upload
 - 🔄 Automatic model fallback for reliability
-- 🎨 Beautiful gradient design
+- 🎨 Beautiful gradient design with dark/light theme
 
-## Deployment on Hugging Face
-
-### Method 1: Using Hugging Face Spaces UI
-
-1. Go to https://huggingface.co/spaces
-2. Click "Create new Space"
-3. Choose "Docker" as the SDK
-4. Upload these files:
-   - `main.py`
-   - `requirements_fastapi.txt`
-   - `Dockerfile`
-   - `static/index.html`
-5. Add your Gemini API key as a secret:
-   - Go to Settings → Repository secrets
-   - Add: `GEMINI_API_KEY` = your_api_key
-
-### Method 2: Using Git
-
-```bash
-# Clone your space
-git clone https://huggingface.co/spaces/YOUR_USERNAME/YOUR_SPACE_NAME
-cd YOUR_SPACE_NAME
-
-# Copy files
-cp main.py Dockerfile requirements_fastapi.txt ./
-cp -r static ./
-
-# Commit and push
-git add .
-git commit -m "Deploy Luna chatbot"
-git push
-```
-
-### Environment Variables
-
-Set these in your Hugging Face Space settings:
-
-- `GEMINI_API_KEY`: Your Google Gemini API key
-
-## Local Development
+## Quick Start - Local Development
 
 ```bash
 # Install dependencies
 pip install -r requirements_fastapi.txt
+
+# Set your API key
+export GEMINI_API_KEY="your_api_key_here"
 
 # Run the server
 python main.py
@@ -61,18 +25,89 @@ python main.py
 
 Visit http://localhost:7860
 
+## Deployment on Hugging Face
+
+See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed instructions.
+
+### Quick Deploy Steps:
+
+1. Create a new Space on Hugging Face (SDK: Docker)
+2. Upload: `Dockerfile`, `main.py`, `requirements_fastapi.txt`, `README.md`, and `static/` folder
+3. Add secret: `GEMINI_API_KEY` = your_api_key
+4. Wait for build to complete
+5. Done! Your Luna chatbot is live
+
+## File Structure
+
+```
+Luna/
+├── Dockerfile              # Docker configuration for Hugging Face
+├── main.py                 # FastAPI backend
+├── requirements_fastapi.txt # Python dependencies
+├── README.md               # This file
+├── DEPLOYMENT_GUIDE.md     # Detailed deployment instructions
+└── static/
+    └── index.html          # Frontend UI
+```
+
 ## API Endpoints
 
 - `GET /`: Main chat interface
 - `POST /chat`: Send message and get response
 - `POST /upload`: Upload files
 
+## Environment Variables
+
+- `GEMINI_API_KEY`: Your Google Gemini API key (required)
+
 ## Tech Stack
 
-- FastAPI
-- Google Gemini AI
-- LangChain
-- HTML/CSS/JavaScript
-- Docker
+- **Backend**: FastAPI, Python 3.10
+- **AI**: Google Gemini AI via LangChain
+- **Frontend**: HTML, CSS, JavaScript
+- **Deployment**: Docker on Hugging Face Spaces
 
-## Created by TCG TECH
+## Features in Detail
+
+### Chat Interface
+- Clean, modern design with glassmorphism effects
+- Smooth animations and transitions
+- Typing indicators
+- Message history
+
+### File Upload
+- Support for images (PNG, JPG, JPEG, GIF, BMP)
+- Support for documents (PDF, TXT, DOC, DOCX, CSV, XLSX)
+- Multiple file upload
+- File preview badges
+
+### Theme Toggle
+- Dark mode (default)
+- Light mode
+- Smooth transitions
+
+### AI Features
+- Multiple Gemini model support
+- Automatic fallback if one model fails
+- Context-aware responses
+- File-aware conversations
+
+## Browser Support
+
+- Chrome/Edge (recommended)
+- Firefox
+- Safari
+- Mobile browsers
+
+## License
+
+MIT License - Created by TCG TECH
+
+## Support
+
+For issues or questions, please open an issue on the repository.
+
+---
+
+**Powered by Google Gemini AI | Built with ❤️ by TCG TECH**
+

@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Streamlit (not needed for FastAPI)
+app.py
+.streamlit/
+
+# Documentation
+README_HUGGINGFACE.md
+
+# Other
+.DS_Store
+*.log

@@ -1,17 +1,41 @@
-# Gemini Chatbot
+---
+title: Luna AI Chatbot
+emoji: 🌙
+colorFrom: purple
+colorTo: blue
+sdk: docker
+pinned: false
+license: mit
+---
 
-A simple chatbot using Google Gemini AI, LangChain, and Streamlit.
+# Luna - AI Chatbot by TCG TECH
 
-## Setup
+Luna is an intelligent AI chatbot powered by Google Gemini AI with a beautiful, professional interface.
 
-1. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+## Features
 
-2. Run the app:
-```bash
-streamlit run app.py
-```
+- 🌙 Modern glassmorphism UI design
+- 💬 Real-time chat with typing indicators
+- 📎 Integrated file and image upload
+- 🎨 Dark/Light theme toggle
+- 🔄 Automatic model fallback for reliability
+- 📱 Fully responsive design
 
-The chatbot will open in your browser at http://localhost:8501
+## How to Use
+
+1. Type your message in the input box
+2. Click the 📎 button to upload images or documents
+3. Press Enter or click ➤ to send
+4. Toggle theme with the button in the top right
+
+## Tech Stack
+
+- FastAPI
+- Google Gemini AI
+- LangChain
+- HTML/CSS/JavaScript
+- Docker
+
+## Created by TCG TECH
+
+Powered by Google Gemini AI and deployed on Hugging Face Spaces.
