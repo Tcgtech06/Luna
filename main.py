@@ -11,10 +11,15 @@ import uvicorn
 
 app = FastAPI(title="Luna - AI Chatbot by TCG TECH")
 
-# CORS middleware
+# CORS middleware - Allow React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",  # React dev server
+        "http://localhost:5173",  # Vite dev server
+        "https://huggingface.co",  # Hugging Face
+        "*"  # Allow all origins (remove in production for security)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -62,10 +67,22 @@ def try_next_model():
 
 @app.get("/")
 async def read_root():
-    try:
-        return FileResponse("static/index.html")
-    except Exception as e:
-        return HTMLResponse(content=f"<h1>Error loading page: {str(e)}</h1><p>Make sure static/index.html exists</p>", status_code=500)
+    """API root endpoint"""
+    return {
+        "name": "Luna AI Chatbot",
+        "version": "1.0.0",
+        "description": "AI Chatbot powered by Google Gemini AI",
+        "created_by": "TCG TECH",
+        "endpoints": {
+            "chat": "POST /chat",
+            "upload": "POST /upload"
+        }
+    }
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "Luna AI Chatbot"}
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
