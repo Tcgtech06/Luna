@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+fastapi-cors
+httpx
+Pillow
+python-dotenv

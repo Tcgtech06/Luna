@@ -7,6 +7,34 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://tcgtech-luna-chatb
 axios.defaults.headers.common['Content-Type'] = 'application/json'
 
 // Icon components
+const MenuIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+    <rect x="8" y="5" width="16" height="4" rx="2" fill="#ea4335"></rect>
+    <rect x="3" y="13" width="26" height="4" rx="2" fill="#34a853"></rect>
+    <rect x="8" y="21" width="16" height="4" rx="2" fill="#fbbc05"></rect>
+  </svg>
+)
+
+const MessageSquareIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+  </svg>
+)
+
+const PlusIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="12" y1="5" x2="12" y2="19"></line>
+    <line x1="5" y1="12" x2="19" y2="12"></line>
+  </svg>
+)
+
+const TrashIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="3 6 5 6 21 6"></polyline>
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+  </svg>
+)
+
 const MoonIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
@@ -106,6 +134,71 @@ function App() {
   const fileInputRef = useRef(null)
   const abortControllerRef = useRef(null)
 
+  const [chatHistory, setChatHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem('luna-history')
+      return saved ? JSON.parse(saved) : []
+    } catch (e) {
+      console.error('Error loading history:', e)
+      return []
+    }
+  })
+  const [currentChatId, setCurrentChatId] = useState(() => {
+    return localStorage.getItem('luna-current-chat-id') || null
+  })
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    // Open by default only on mobile, closed on desktop
+    return window.innerWidth <= 768
+  })
+
+  const deleteChat = (e, id) => {
+    e.stopPropagation()
+    setChatHistory(prev => {
+      const updatedHistory = prev.filter(c => c.id !== id)
+      if (currentChatId === id) {
+        setCurrentChatId(null)
+        setMessages([])
+      }
+      return updatedHistory
+    })
+  }
+
+  // Load chat on mount or currentChatId change
+  useEffect(() => {
+    if (currentChatId) {
+      const chat = chatHistory.find(c => c.id === currentChatId)
+      if (chat) {
+        setMessages(chat.messages || [])
+      }
+    } else {
+      setMessages([])
+    }
+    localStorage.setItem('luna-current-chat-id', currentChatId || '')
+  }, [currentChatId, chatHistory])
+
+  // Save chat history to localStorage
+  useEffect(() => {
+    localStorage.setItem('luna-history', JSON.stringify(chatHistory))
+  }, [chatHistory])
+
+  const selectChat = (id) => {
+    setCurrentChatId(id)
+    // Only close sidebar on mobile (max-width: 768px)
+    if (window.innerWidth <= 768) {
+      setIsSidebarOpen(false)
+    }
+  }
+
+  const startNewChat = () => {
+    const newId = Date.now().toString()
+    setCurrentChatId(newId)
+    setMessages([])
+    // Only close sidebar on mobile
+    if (window.innerWidth <= 768) {
+      setIsSidebarOpen(false)
+    }
+  }
+
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
@@ -177,7 +270,6 @@ function App() {
       setLanguageMode(detectedLang)
     } else if (messageText.toLowerCase().includes('english') || 
                messageText.toLowerCase().includes('speak english')) {
-      // User explicitly wants English
       setLanguageMode('english')
     }
 
@@ -187,14 +279,43 @@ function App() {
       files: uploadedFiles
     }
 
-    setMessages([...messages, userMessage])
+    const updatedMessages = [...messages, userMessage]
+    setMessages(updatedMessages)
     setInputMessage('')
     setIsTyping(true)
 
+    // Get or create chat ID
+    const chatId = currentChatId || Date.now().toString()
+    
+    // Update current chat ID if it's a new chat
+    if (!currentChatId) {
+      setCurrentChatId(chatId)
+    }
+
+    // Update history with user message
+    const existingChat = chatHistory.find(chat => chat.id === chatId)
+    let updatedHistory
+    
+    if (!existingChat) {
+      // Create new chat entry
+      updatedHistory = [...chatHistory, {
+        id: chatId,
+        title: messageText.substring(0, 30) + (messageText.length > 30 ? '...' : ''),
+        messages: updatedMessages,
+        timestamp: new Date().toISOString()
+      }]
+    } else {
+      // Update existing chat entry
+      updatedHistory = chatHistory.map(chat => 
+        chat.id === chatId 
+          ? { ...chat, messages: updatedMessages, timestamp: new Date().toISOString() }
+          : chat
+      )
+    }
+    setChatHistory(updatedHistory)
+
     // Create new AbortController for this request
     abortControllerRef.current = new AbortController()
-
-    // Add language instruction to the message
     const messageWithInstruction = messageText + getLanguageInstruction()
 
     try {
@@ -213,23 +334,40 @@ function App() {
         content: response.data.response
       }
 
-      setMessages(prev => [...prev, assistantMessage])
+      const finalMessages = [...updatedMessages, assistantMessage]
+      setMessages(finalMessages)
+      
+      // Update history with assistant response
+      const finalHistory = updatedHistory.map(chat => 
+        chat.id === chatId 
+          ? { ...chat, messages: finalMessages, timestamp: new Date().toISOString() }
+          : chat
+      )
+      setChatHistory(finalHistory)
+      
       setUploadedFiles([])
     } catch (error) {
       if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
-        // Request was cancelled by user
         const cancelMessage = {
           role: 'assistant',
           content: 'Response stopped by user.'
         }
-        setMessages(prev => [...prev, cancelMessage])
+        const finalMessages = [...updatedMessages, cancelMessage]
+        setMessages(finalMessages)
+        setChatHistory(updatedHistory.map(chat => 
+          chat.id === chatId ? { ...chat, messages: finalMessages } : chat
+        ))
       } else {
         console.error('Error sending message:', error)
         const errorMessage = {
           role: 'assistant',
           content: `Sorry, an error occurred: ${error.response?.data?.error || error.message || 'Please try again.'}`
         }
-        setMessages(prev => [...prev, errorMessage])
+        const finalMessages = [...updatedMessages, errorMessage]
+        setMessages(finalMessages)
+        setChatHistory(updatedHistory.map(chat => 
+          chat.id === chatId ? { ...chat, messages: finalMessages } : chat
+        ))
       }
     } finally {
       setIsTyping(false)
@@ -261,20 +399,74 @@ function App() {
 
   return (
     <div className={`app ${theme}`}>
-      {/* Header */}
-      <header className="header">
-        <div className="header-left">
-          <div className="logo">
-            <SparklesIcon />
-          </div>
-          <div className="header-title">
-            <h1>Luna</h1>
+      {/* Background Pattern */}
+      <div className="celestial-background">
+        <div className="star star-1"></div>
+        <div className="star star-2"></div>
+        <div className="star star-3"></div>
+        <div className="star star-4"></div>
+        <div className="star star-5"></div>
+        <div className="moon-pattern"></div>
+        <div className="comet comet-1"></div>
+        <div className="comet comet-2"></div>
+      </div>
+
+      {/* Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)}></div>
+      )}
+
+      {/* Sidebar */}
+      <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+        <div className="sidebar-header">
+          <button className="new-chat-btn" onClick={startNewChat}>
+            <PlusIcon />
+            <span>New Chat</span>
+          </button>
+        </div>
+        <div className="sidebar-content">
+          <div className="history-label">Recent</div>
+          <div className="history-list">
+            {chatHistory.length === 0 ? (
+              <div className="empty-history">No history yet</div>
+            ) : (
+              chatHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map(chat => (
+                <div 
+                  key={chat.id} 
+                  className={`history-item ${currentChatId === chat.id ? 'active' : ''}`}
+                  onClick={() => selectChat(chat.id)}
+                >
+                  <MessageSquareIcon />
+                  <span className="history-title">{chat.title}</span>
+                  <button className="delete-chat" onClick={(e) => deleteChat(e, chat.id)}>
+                    <TrashIcon />
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </div>
-        <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
-          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-        </button>
-      </header>
+      </aside>
+
+      <div className="main-content">
+        {/* Header */}
+        <header className="header">
+          <div className="header-left">
+            <button className="menu-btn" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+              <MenuIcon />
+            </button>
+            <div className="logo">
+              <img src="/logo.gif" alt="Luna Logo" />
+            </div>
+            <div className="header-title">
+              <h1>Luna</h1>
+            </div>
+          </div>
+          <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
+            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+          </button>
+        </header>
+
 
       {/* Chat Container */}
       <div className="chat-container" ref={chatContainerRef}>
@@ -303,7 +495,7 @@ function App() {
           messages.map((message, index) => (
             <div key={index} className={`message ${message.role}`}>
               <div className="message-avatar">
-                {message.role === 'assistant' ? <SparklesIcon /> : <UserIcon />}
+                {message.role === 'assistant' ? <img src="/logo.gif" alt="Luna" /> : <UserIcon />}
               </div>
               <div className="message-content">
                 {message.content}
@@ -324,7 +516,7 @@ function App() {
         {isTyping && (
           <div className="message assistant">
             <div className="message-avatar">
-              <SparklesIcon />
+              <img src="/logo.gif" alt="Luna" />
             </div>
             <div className="message-content">
               <div className="typing-indicator">
@@ -405,6 +597,7 @@ function App() {
             </button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   )
