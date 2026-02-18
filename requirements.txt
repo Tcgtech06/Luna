@@ -1,5 +1,6 @@
-streamlit
-langchain
-langchain-google-genai
-google-generativeai
+fastapi
+uvicorn
+fastapi-cors
+httpx
 Pillow
+python-dotenv

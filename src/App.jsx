@@ -130,6 +130,15 @@ function App() {
   const [uploadedFiles, setUploadedFiles] = useState([])
   const [showUploadMenu, setShowUploadMenu] = useState(false)
   const [languageMode, setLanguageMode] = useState('english') // 'english', 'tanglish', 'tamil'
+  const [userProfile, setUserProfile] = useState(() => {
+    try {
+      const saved = localStorage.getItem('luna-user-profile')
+      return saved ? JSON.parse(saved) : { user_id: 'user_' + Date.now(), preferences: {} }
+    } catch (e) {
+      console.error('Error loading user profile:', e)
+      return { user_id: 'user_' + Date.now(), preferences: {} }
+    }
+  })
   const chatContainerRef = useRef(null)
   const fileInputRef = useRef(null)
   const abortControllerRef = useRef(null)
@@ -220,6 +229,11 @@ function App() {
   useEffect(() => {
     localStorage.setItem('luna-theme', theme)
   }, [theme])
+
+  // Save user profile to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('luna-user-profile', JSON.stringify(userProfile))
+  }, [userProfile])
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark')
@@ -321,7 +335,9 @@ function App() {
     try {
       const response = await axios.post(`${API_BASE_URL}/chat`, {
         message: messageWithInstruction,
-        files: uploadedFiles
+        files: uploadedFiles,
+        conversation_history: updatedMessages.slice(-10), // Send last 10 messages for context
+        user_profile: userProfile
       }, {
         headers: {
           'Content-Type': 'application/json'
@@ -331,11 +347,18 @@ function App() {
 
       const assistantMessage = {
         role: 'assistant',
-        content: response.data.response
+        content: response.data.response,
+        emotion_detected: response.data.emotion_detected,
+        response_style: response.data.response_style
       }
 
       const finalMessages = [...updatedMessages, assistantMessage]
       setMessages(finalMessages)
+      
+      // Update user profile if returned
+      if (response.data.user_profile) {
+        setUserProfile(response.data.user_profile)
+      }
       
       // Update history with assistant response
       const finalHistory = updatedHistory.map(chat => 
@@ -499,6 +522,14 @@ function App() {
               </div>
               <div className="message-content">
                 {message.content}
+                {message.emotion_detected && (
+                  <div className="emotion-indicator">
+                    <span className="emotion-badge">Detected: {message.emotion_detected}</span>
+                    {message.response_style && (
+                      <span className="style-badge">Style: {message.response_style}</span>
+                    )}
+                  </div>
+                )}
                 {message.files && message.files.length > 0 && (
                   <div className="message-files">
                     {message.files.map((file, i) => (
