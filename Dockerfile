@@ -2,19 +2,29 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Copy requirements and install dependencies
-COPY requirements_fastapi.txt .
-RUN pip install --no-cache-dir -r requirements_fastapi.txt
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy application files
+# Copy requirements first for better caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy backend files
 COPY main.py .
-COPY static ./static
+COPY model_manager.py .
+COPY google_file_manager.py .
+COPY file_storage.py .
 
-# Expose port 7860 (Hugging Face Spaces default)
+# Create necessary directories
+RUN mkdir -p static chroma_db
+
+# Expose port
 EXPOSE 7860
 
-# Set environment variable for Hugging Face
-ENV GRADIO_SERVER_NAME="0.0.0.0"
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
 
 # Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["python", "main.py"]

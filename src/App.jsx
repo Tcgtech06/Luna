@@ -6,6 +6,8 @@ import axios from 'axios'
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://tcgtech-luna-chatbot.hf.space'
 axios.defaults.headers.common['Content-Type'] = 'application/json'
 
+console.log('API_BASE_URL:', API_BASE_URL) // Debug log
+
 // Icon components
 const MenuIcon = () => (
   <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -52,6 +54,12 @@ const SunIcon = () => (
     <line x1="21" y1="12" x2="23" y2="12"></line>
     <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
     <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+  </svg>
+)
+
+const HeartIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78 7.78 7.78 0 0 0 7.78 0l-1.06 1.06L12 17.23l-1.06-1.06a5.5 5.5 0 0 0-7.78-7.78l-1.06 1.06a5.5 5.5 0 0 0 7.78 7.78l1.06 1.06L12 21.23z"/>
   </svg>
 )
 
@@ -111,6 +119,19 @@ const StopIcon = () => (
   </svg>
 )
 
+const LoveIcon = () => (
+  <img 
+    src="/love.png" 
+    alt="Love" 
+    width="20" 
+    height="20" 
+    style={{ 
+      objectFit: 'contain',
+      filter: 'drop-shadow(0 0 4px rgba(233, 30, 99, 0.3))'
+    }} 
+  />
+)
+
 // Predefined questions
 const PREDEFINED_QUESTIONS = [
   "Tell me about yourself",
@@ -129,6 +150,9 @@ function App() {
   const [isTyping, setIsTyping] = useState(false)
   const [uploadedFiles, setUploadedFiles] = useState([])
   const [showUploadMenu, setShowUploadMenu] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadedDocuments, setUploadedDocuments] = useState([]) // Track processed documents
+  const [isRelationshipMode, setIsRelationshipMode] = useState(false) // Relationship consultant mode
   const [languageMode, setLanguageMode] = useState('english') // 'english', 'tanglish', 'tamil'
   const [userProfile, setUserProfile] = useState(() => {
     try {
@@ -156,8 +180,8 @@ function App() {
     return localStorage.getItem('luna-current-chat-id') || null
   })
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-    // Open by default only on mobile, closed on desktop
-    return window.innerWidth <= 768
+    // Closed by default on all devices
+    return false
   })
 
   const deleteChat = (e, id) => {
@@ -264,15 +288,90 @@ function App() {
     return ''
   }
 
-  const handleFileUpload = (event) => {
-    const files = Array.from(event.target.files)
-    const fileNames = files.map(f => f.name)
-    setUploadedFiles([...uploadedFiles, ...fileNames])
-    setShowUploadMenu(false)
-  }
+  const handleFileUpload = async (event) => {
+      const files = Array.from(event.target.files)
+
+      // Auto-close upload menu immediately when files are selected
+      setShowUploadMenu(false)
+
+      // Return early if no files selected
+      if (files.length === 0) return
+
+      // Add files to preview area (not to chat yet)
+      const fileNames = files.map(f => f.name)
+      setUploadedFiles([...uploadedFiles, ...fileNames])
+
+      // Analyze all files immediately
+      for (const file of files) {
+        const fileExtension = '.' + file.name.split('.').pop().toLowerCase()
+        const isDocument = ['.pdf', '.txt'].includes(fileExtension)
+        const isImage = file.type.startsWith('image/')
+
+        // For all files, send to analyze endpoint
+        if (isImage || isDocument) {
+          try {
+            console.log(`🔍 Analyzing ${file.name}...`)
+
+            const formData = new FormData()
+            formData.append('file', file)
+
+            const response = await axios.post(`${API_BASE_URL}/analyze-file`, formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data'
+              },
+              timeout: 120000
+            })
+
+            console.log(`✅ Analysis complete for ${file.name}`)
+
+            // For documents, also upload to RAG system
+            if (isDocument) {
+              setIsUploading(true)
+              try {
+                const ragResponse = await axios.post(`${API_BASE_URL}/upload`, formData, {
+                  headers: {
+                    'Content-Type': 'multipart/form-data'
+                  },
+                  timeout: 120000
+                })
+
+                if (ragResponse.data.success) {
+                  const newDoc = {
+                    name: ragResponse.data.filename,
+                    uploadTime: new Date().toISOString(),
+                    chunks: ragResponse.data.chunks_created,
+                    processingTime: ragResponse.data.processing_time
+                  }
+                  setUploadedDocuments(prev => [...prev, newDoc])
+                  console.log(`✅ ${ragResponse.data.filename} ready for RAG analysis`)
+                }
+              } catch (error) {
+                console.error('RAG upload error:', error)
+              } finally {
+                setIsUploading(false)
+              }
+            }
+
+          } catch (error) {
+            console.error(`Analysis error for ${file.name}:`, error)
+          }
+        }
+      }
+
+      // Clear the file input
+      if (event.target) {
+        event.target.value = ''
+      }
+    }
 
   const removeFile = (index) => {
     setUploadedFiles(uploadedFiles.filter((_, i) => i !== index))
+  }
+
+  // Function to make URLs clickable
+  const makeUrlsClickable = (text) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g
+    return text.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer" class="clickable-url">$1</a>')
   }
 
   const sendMessage = async (messageText = inputMessage) => {
@@ -296,7 +395,18 @@ function App() {
     const updatedMessages = [...messages, userMessage]
     setMessages(updatedMessages)
     setInputMessage('')
+    
+    // Clear uploaded files after sending message
+    setUploadedFiles([])
+    
     setIsTyping(true)
+
+    // Auto-scroll to bottom after adding user message
+    setTimeout(() => {
+      if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
+      }
+    }, 100)
 
     // Get or create chat ID
     const chatId = currentChatId || Date.now().toString()
@@ -330,30 +440,57 @@ function App() {
 
     // Create new AbortController for this request
     abortControllerRef.current = new AbortController()
-    const messageWithInstruction = messageText + getLanguageInstruction()
+    let messageWithInstruction = messageText + getLanguageInstruction()
+    
+    // Add relationship consultant context if mode is active
+    if (isRelationshipMode) {
+      messageWithInstruction += ' [RELATIONSHIP CONSULTANT MODE: You are Luna, a calm and wise relationship consultant. Provide gentle, thoughtful relationship advice in 1-2 lines. Be supportive but composed, like a trusted friend with quiet wisdom.]'
+    }
 
     try {
+      console.log('Sending request to:', `${API_BASE_URL}/chat`) // Debug log
+      console.log('Request payload:', {
+        message: messageWithInstruction,
+        files: uploadedFiles,
+        conversation_history: updatedMessages.slice(-10),
+        user_profile: userProfile
+      }) // Debug log
+
       const response = await axios.post(`${API_BASE_URL}/chat`, {
         message: messageWithInstruction,
         files: uploadedFiles,
         conversation_history: updatedMessages.slice(-10), // Send last 10 messages for context
-        user_profile: userProfile
+        user_profile: {
+          ...userProfile,
+          relationship_mode: isRelationshipMode
+        }
       }, {
         headers: {
           'Content-Type': 'application/json'
         },
-        signal: abortControllerRef.current.signal
+        signal: abortControllerRef.current.signal,
+        timeout: 140000 // 140 second timeout (increased for multiple model switching)
       })
+
+      console.log('Response received:', response.data) // Debug log
+
+      // Process response content to make URLs clickable
+      const processedContent = makeUrlsClickable(response.data.response)
 
       const assistantMessage = {
         role: 'assistant',
-        content: response.data.response,
-        emotion_detected: response.data.emotion_detected,
-        response_style: response.data.response_style
+        content: processedContent
       }
 
       const finalMessages = [...updatedMessages, assistantMessage]
       setMessages(finalMessages)
+      
+      // Auto-scroll to bottom after adding assistant message
+      setTimeout(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
+        }
+      }, 100)
       
       // Update user profile if returned
       if (response.data.user_profile) {
@@ -370,6 +507,10 @@ function App() {
       
       setUploadedFiles([])
     } catch (error) {
+      console.error('Error sending message:', error)
+      console.error('Error response:', error.response?.data)
+      console.error('Error status:', error.response?.status)
+      
       if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
         const cancelMessage = {
           role: 'assistant',
@@ -381,12 +522,25 @@ function App() {
           chat.id === chatId ? { ...chat, messages: finalMessages } : chat
         ))
       } else {
-        console.error('Error sending message:', error)
-        const errorMessage = {
-          role: 'assistant',
-          content: `Sorry, an error occurred: ${error.response?.data?.error || error.message || 'Please try again.'}`
+        let errorMessage = 'Sorry, an error occurred.'
+        
+        if (error.code === 'ECONNABORTED') {
+          errorMessage = 'Luna is switching models, please wait a moment and try again.'
+        } else if (error.code === 'ECONNREFUSED') {
+          errorMessage = 'Cannot connect to Luna backend.'
+        } else if (error.response?.status === 404) {
+          errorMessage = 'Backend service not found.'
+        } else if (error.response?.status >= 500) {
+          errorMessage = 'Backend server error.'
+        } else if (error.response?.data?.error) {
+          errorMessage = `Error: ${error.response.data.error}`
         }
-        const finalMessages = [...updatedMessages, errorMessage]
+        
+        const errorMsg = {
+          role: 'assistant',
+          content: errorMessage
+        }
+        const finalMessages = [...updatedMessages, errorMsg]
         setMessages(finalMessages)
         setChatHistory(updatedHistory.map(chat => 
           chat.id === chatId ? { ...chat, messages: finalMessages } : chat
@@ -421,18 +575,26 @@ function App() {
   }
 
   return (
-    <div className={`app ${theme}`}>
+    <div className={`app ${theme} ${isRelationshipMode ? 'love-mode' : ''}`}>
       {/* Background Pattern */}
       <div className="celestial-background">
         <div className="star star-1"></div>
         <div className="star star-2"></div>
         <div className="star star-3"></div>
-        <div className="star star-4"></div>
-        <div className="star star-5"></div>
         <div className="moon-pattern"></div>
-        <div className="comet comet-1"></div>
-        <div className="comet comet-2"></div>
+        <div className="comet"></div>
       </div>
+      
+      {/* Heart Patterns for Love Mode */}
+      {isRelationshipMode && (
+        <div className="heart-pattern">
+          <div className="heart">❤️</div>
+          <div className="heart">💕</div>
+          <div className="heart">💖</div>
+          <div className="heart">💗</div>
+          <div className="heart">💝</div>
+        </div>
+      )}
 
       {/* Sidebar Overlay */}
       {isSidebarOpen && (
@@ -482,7 +644,7 @@ function App() {
               <img src="/logo.gif" alt="Luna Logo" />
             </div>
             <div className="header-title">
-              <h1>Luna</h1>
+              <h1>{isRelationshipMode ? 'Cupin' : 'Luna'}</h1>
             </div>
           </div>
           <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
@@ -493,12 +655,25 @@ function App() {
 
       {/* Chat Container */}
       <div className="chat-container" ref={chatContainerRef}>
+        {/* Chat Background Hearts for Love Mode */}
+        {isRelationshipMode && (
+          <div className="chat-hearts">
+            <div className="chat-heart">💕</div>
+            <div className="chat-heart">💖</div>
+            <div className="chat-heart">💗</div>
+            <div className="chat-heart">💝</div>
+            <div className="chat-heart">❤️</div>
+            <div className="chat-heart">💕</div>
+            <div className="chat-heart">💖</div>
+            <div className="chat-heart">💗</div>
+          </div>
+        )}
         {messages.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">
               <SparklesIcon />
             </div>
-            <h2>Hello, I'm Luna</h2>
+            <h2>Hello, I'm {isRelationshipMode ? 'Cupin' : 'Luna'}</h2>
             <p>How can I help you today?</p>
             
             {/* Predefined Questions */}
@@ -521,16 +696,37 @@ function App() {
                 {message.role === 'assistant' ? <img src="/logo.gif" alt="Luna" /> : <UserIcon />}
               </div>
               <div className="message-content">
-                {message.content}
-                {message.emotion_detected && (
-                  <div className="emotion-indicator">
-                    <span className="emotion-badge">Detected: {message.emotion_detected}</span>
-                    {message.response_style && (
-                      <span className="style-badge">Style: {message.response_style}</span>
+                <div dangerouslySetInnerHTML={{ __html: message.content }} />
+                
+                {/* File information display */}
+                {message.fileInfo && (
+                  <div className="file-info-card">
+                    <div className="file-info-header">
+                      <FileTextIcon />
+                      <span className="file-name">{message.fileInfo.name}</span>
+                      {message.isUploading && (
+                        <div className="upload-spinner">
+                          <div className="spinner"></div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="file-info-details">
+                      <span className="file-size">{message.fileInfo.size}</span>
+                      <span className="file-type">{message.fileInfo.type}</span>
+                    </div>
+                    {message.isUploading && (
+                      <div className="upload-progress">
+                        <div className="progress-bar">
+                          <div className="progress-fill"></div>
+                        </div>
+                        <span className="upload-text">Uploading...</span>
+                      </div>
                     )}
                   </div>
                 )}
-                {message.files && message.files.length > 0 && (
+                
+                {/* Legacy file display for backward compatibility */}
+                {message.files && message.files.length > 0 && !message.fileInfo && (
                   <div className="message-files">
                     {message.files.map((file, i) => (
                       <span key={i} className="file-tag">
@@ -588,14 +784,25 @@ function App() {
               
               {showUploadMenu && (
                 <div className="upload-menu">
-                  <button onClick={() => fileInputRef.current?.click()}>
+                  <button onClick={() => {
+                    // Set file input to accept only images
+                    fileInputRef.current.accept = 'image/*';
+                    fileInputRef.current?.click();
+                  }}>
                     <ImageIcon />
                     <span>Upload Image</span>
                   </button>
-                  <button onClick={() => fileInputRef.current?.click()}>
+                  <button onClick={() => {
+                    // Set file input to accept documents for RAG processing including ZIP
+                    fileInputRef.current.accept = '.pdf,.txt,.zip,application/pdf,text/plain,application/zip,application/x-zip-compressed';
+                    fileInputRef.current?.click();
+                  }}>
                     <FileTextIcon />
-                    <span>Upload Document</span>
+                    <span>Upload Document (PDF/TXT/ZIP)</span>
                   </button>
+                  <div className="upload-info">
+                    <small>Images for chat • Documents for analysis</small>
+                  </div>
                 </div>
               )}
               
@@ -603,11 +810,35 @@ function App() {
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept="image/*,.pdf,.txt,.doc,.docx,.csv,.xlsx"
+                accept="image/*"
                 onChange={handleFileUpload}
                 style={{ display: 'none' }}
               />
             </div>
+
+            <button 
+              className={`love-btn ${isRelationshipMode ? 'active' : ''}`}
+              onClick={() => {
+                setIsRelationshipMode(!isRelationshipMode)
+                const modeMessage = {
+                  role: 'assistant',
+                  content: isRelationshipMode 
+                    ? "General mode activated." 
+                    : "💕 Relationship mode activated."
+                }
+                setMessages(prev => [...prev, modeMessage])
+                
+                // Auto-scroll
+                setTimeout(() => {
+                  if (chatContainerRef.current) {
+                    chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
+                  }
+                }, 100)
+              }}
+              aria-label={isRelationshipMode ? "Exit relationship mode" : "Enter relationship mode"}
+            >
+              <LoveIcon />
+            </button>
 
             <input
               type="text"
@@ -621,13 +852,30 @@ function App() {
             <button 
               className="send-btn" 
               onClick={isTyping ? stopResponse : () => sendMessage()}
-              disabled={!isTyping && !inputMessage.trim()}
-              aria-label={isTyping ? "Stop response" : "Send message"}
+              disabled={(!isTyping && !inputMessage.trim()) || isUploading}
+              aria-label={isTyping ? "Stop response" : isUploading ? "Uploading..." : "Send message"}
             >
-              {isTyping ? <StopIcon /> : <SendIcon />}
+              {isTyping ? <StopIcon /> : isUploading ? '⏳' : <SendIcon />}
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Mobile Watermark */}
+      <div className="mobile-watermark">
+        <span>A product of </span>
+        <a 
+          href="https://tcgtech.in" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="tcg-tech-link"
+        >
+          <span className="t-letter">T</span>
+          <span className="c-letter">C</span>
+          <span className="g-letter">G</span>
+          <span className="space"> </span>
+          <span className="tech-text">TECH</span>
+        </a>
       </div>
       </div>
     </div>

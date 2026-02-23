@@ -1,143 +1,53 @@
-# Luna Frontend - React + Vite
+---
+title: Luna Chatbot
+emoji: 🌙
+colorFrom: purple
+colorTo: pink
+sdk: docker
+app_file: main.py
+pinned: false
+license: mit
+---
 
-Professional React frontend for Luna AI Chatbot.
+# Luna - AI Chatbot by TCG TECH
+
+Luna is an enthusiastic and positive AI chatbot powered by Google Gemini AI, created by TCG TECH.
 
 ## Features
 
-- ⚡ Built with React 18 and Vite
-- 🎨 Modern, professional UI with glassmorphism
-- 🌙 Dark/Light theme toggle
-- 📎 File upload support
-- 💬 Real-time chat interface
-- 📱 Fully responsive design
-- 🚀 Fast and optimized
+- 🌟 **Enthusiastic Personality**: Luna is always positive, motivating, and full of energy
+- 🧠 **Smart Conversations**: Powered by Google Gemini AI for intelligent responses
+- 🌍 **Multi-language Support**: Supports English, Tamil, and Tanglish
+- 📁 **File Upload**: Upload images and documents for analysis
+- 💼 **TCG TECH Integration**: Recommends TCG TECH for software development needs
+- 🎨 **Modern UI**: Beautiful glassmorphism design with dark/light themes
 
-## Setup
+## About TCG TECH
 
-### 1. Install Dependencies
+Luna is proudly created by **TCG TECH**, a product-based IT company specializing in:
+- Software Development
+- Web Development
+- Mobile App Development
+- Digital Solutions
+- Technical Consulting
 
-```bash
-cd luna-frontend
-npm install
-```
+Visit us at: [tcgtech.in](https://tcgtech.in)
 
-### 2. Configure Backend URL
+## Usage
 
-Create a `.env` file:
+Simply start chatting with Luna! She's designed to be:
+- Extremely enthusiastic and positive
+- Helpful and solution-focused
+- Knowledgeable about technology and development
+- Ready to recommend TCG TECH for your technical needs
 
-```bash
-cp .env.example .env
-```
+## Technology Stack
 
-Edit `.env` and set your backend URL:
+- **Backend**: FastAPI with Python
+- **AI Model**: Google Gemini AI
+- **Language Processing**: LangChain
+- **Deployment**: Docker on Hugging Face Spaces
 
-```env
-# For local development
-VITE_API_URL=http://localhost:7860
+---
 
-# For production (Hugging Face)
-VITE_API_URL=https://huggingface.co/spaces/YOUR_USERNAME/luna-backend
-```
-
-### 3. Run Development Server
-
-```bash
-npm run dev
-```
-
-Visit http://localhost:3000
-
-## Build for Production
-
-```bash
-npm run build
-```
-
-The build output will be in the `dist/` folder.
-
-## Deploy
-
-### Option 1: Vercel
-
-```bash
-npm install -g vercel
-vercel
-```
-
-### Option 2: Netlify
-
-```bash
-npm install -g netlify-cli
-netlify deploy --prod
-```
-
-### Option 3: GitHub Pages
-
-1. Update `vite.config.js` with base path
-2. Run `npm run build`
-3. Deploy `dist/` folder to GitHub Pages
-
-## Environment Variables
-
-- `VITE_API_URL`: Backend API URL (required)
-
-## Project Structure
-
-```
-luna-frontend/
-├── src/
-│   ├── App.jsx          # Main component
-│   ├── App.css          # Styles
-│   ├── main.jsx         # Entry point
-│   └── index.css        # Global styles
-├── index.html           # HTML template
-├── vite.config.js       # Vite configuration
-├── package.json         # Dependencies
-└── .env                 # Environment variables
-```
-
-## Tech Stack
-
-- React 18
-- Vite
-- Axios (HTTP client)
-- Lucide React (Icons)
-
-## Backend Integration
-
-The frontend connects to the FastAPI backend deployed on Hugging Face Spaces.
-
-### API Endpoints Used:
-
-- `POST /chat` - Send messages
-- `POST /upload` - Upload files
-
-## Customization
-
-### Change Theme Colors
-
-Edit `App.css` and modify the gradient colors:
-
-```css
-background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-```
-
-### Change API URL
-
-Update `.env` file with your backend URL.
-
-## Troubleshooting
-
-### CORS Errors
-
-Make sure your backend has CORS enabled for your frontend domain.
-
-### API Connection Failed
-
-1. Check if backend is running
-2. Verify `VITE_API_URL` in `.env`
-3. Check browser console for errors
-
-## Created by TCG TECH
-
-Powered by React + Vite
+*A product of **TCG TECH** - Transforming ideas into digital reality*

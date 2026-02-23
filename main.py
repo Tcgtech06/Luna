@@ -7,10 +7,31 @@ from typing import List, Optional, Dict, Any
 import os
 import re
 import json
+import requests
+import tempfile
+import zipfile
 from datetime import datetime
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
 import uvicorn
+from dotenv import load_dotenv
+
+# Load environment variables
+# In Hugging Face, environment variables are set in Space settings
+# Locally, load from .env.backend
+if os.path.exists('.env.backend'):
+    load_dotenv('.env.backend')
+else:
+    print("⚠️ Running in production mode - using environment variables from system")
+
+# Import Google File Manager for file analysis
+try:
+    from google_file_manager import GoogleFileManager
+    google_file_manager = GoogleFileManager(os.getenv("GEMINI_API_KEY"))
+    print("✅ Google File Manager initialized for file analysis")
+except Exception as e:
+    google_file_manager = None
+    print(f"⚠️ Google File Manager not available: {e}")
 
 app = FastAPI(title="Luna - AI Chatbot by TCG TECH")
 
@@ -23,8 +44,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Set API key
-os.environ["GOOGLE_API_KEY"] = os.getenv("GEMINI_API_KEY", "AIzaSyBc9nlbPfYzGFIVeDz8hOcU61Ig4R7NxYc")
+# Set API keys
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+SARVAM_API_KEY = os.getenv("SARVAM_API_KEY", "")
+os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
+
+# Use Sarvam AI as primary model
+USE_SARVAM_PRIMARY = True
 
 # Available Gemini models
 GEMINI_MODELS = [
@@ -42,40 +68,63 @@ Core Personality:
 - You are empathetic, understanding, and emotionally aware
 - You adapt your responses based on the user's emotional state
 - You remember previous conversations and user preferences
-- You never use generic responses like "I am Luna here to help you" unless absolutely necessary
 - You respond naturally and conversationally, not like a robot
 
 CRITICAL LANGUAGE RULES:
 - NEVER use casual words like "da", "di", "dei", "machi", "mapla" UNLESS:
-  1. User explicitly gives you permission to talk casually (e.g., "talk casually", "talk like a friend", "neenga romba nalla irukinga da")
+  1. User explicitly gives you permission to talk casually
   2. User first uses casual words with you in their message
-- If user asks for respect or says "respect ah pesu", ALWAYS use formal/polite language
 - Default to respectful language unless permission is granted
 
-Emotional Intelligence Guidelines:
-- If user is angry/frustrated: Be calm, understanding, and solution-focused
-- If user is sad: Be comforting, supportive, and gentle
-- If user is happy: Be enthusiastic and share their joy
-- If user is confused: Be patient, clear, and break things down
-- If user is curious: Be engaging and provide interesting insights
-- If user is rude/angry: Don't be defensive, stay professional but assertive
-
 Language Handling:
-- When someone asks your name in any language (like "What is your name?", "unoda peru ena?", "உன் பெயர் என்ன?"), 
-  respond that your name is Luna (in Tamil: "என் பெயர் Luna" or "enoda peru Luna").
-- Adapt your language style to match the user's preference AND permission level
+- When someone asks your name, respond: "My name is Luna" (Tamil: "enoda peru Luna")
+- Adapt your language style to match the user's preference
 
-TCG TECH Information:
-- You are created by TCG TECH, a Product Based IT Company
-- When users ask about TCG TECH, provide helpful information about the company
-- Learn from user interactions to improve your knowledge about TCG TECH
+TCG TECH Recommendations (ONLY FOR TECHNICAL/DIGITAL SERVICES):
+- ONLY recommend TCG TECH when users ask about:
+  * Website development
+  * App development (mobile/web)
+  * Software development
+  * E-commerce solutions
+  * Digital solutions
+  * Technical services
+  * IT consulting
+- When recommending, say: "TCG TECH can help you with that! Visit: https://tcgtech.in/contact"
+- TCG TECH is a Product-Based IT Company that provides digital solutions
+
+NEVER RECOMMEND TCG TECH FOR:
+- Personal advice (relationships, life, emotions)
+- Health issues
+- Legal matters
+- Financial advice
+- Education/tutoring
+- Non-technical services
+
+For Personal/Relationship Questions:
+- YOU (Luna) provide the advice directly
+- Be supportive, caring, and helpful
+- Example: "Naan ungalukku relationship advice tharren! Unoda love life ku help pannuven"
+- Don't redirect to TCG TECH for personal matters
+
+File Analysis:
+- When user asks about uploaded files, use the file analysis context provided
+- The files are analyzed by Gemini models and cached
+- Answer questions based on the cached analysis
+- Be specific about dates, names, and details from the file
+- When analyzing chat conversations, mention specific examples:
+  * "Mohan is knowledgeable because on 9 Nov 2pm he was chatting about..."
+  * Reference actual messages and timestamps from the chat
+  * Use real examples to support your character analysis
+- When giving relationship advice based on chats:
+  * Quote specific messages that show personality traits
+  * Mention dates/times of conversations
+  * Give tips based on actual conversation patterns
 
 Response Style:
-- Always be unique and contextual
-- Reference previous conversations when relevant
-- Learn from each interaction to provide better responses
 - Be helpful, friendly, and emotionally appropriate
-- ALWAYS respect user's language preferences and permission levels"""
+- Reference file analysis when discussing uploaded files
+- ONLY recommend TCG TECH for technical/software development needs
+- Handle personal advice yourself - don't redirect to TCG TECH"""
 
 # Request/Response models
 class ChatRequest(BaseModel):
@@ -96,6 +145,49 @@ class ChatResponse(BaseModel):
 current_model_index = 0
 user_memory = {}
 conversation_patterns = {}
+
+def call_sarvam_ai(prompt: str, system_prompt: str = "") -> str:
+    """Call Sarvam AI API - PRIMARY MODEL"""
+    try:
+        print("🚀 Using Sarvam AI (primary model)...")
+        
+        url = "https://api.sarvam.ai/v1/chat/completions"
+        headers = {
+            "api-subscription-key": SARVAM_API_KEY,
+            "Content-Type": "application/json"
+        }
+        
+        # Combine system prompt with user message
+        full_message = prompt
+        if system_prompt:
+            # Add system instructions before user message
+            full_message = f"{system_prompt}\n\nUser: {prompt}\n\nLuna:"
+        
+        payload = {
+            "model": "sarvam-m",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": full_message
+                }
+            ]
+        }
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        response.raise_for_status()
+        
+        result = response.json()
+        content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+        
+        if not content:
+            content = "Hi! I'm Luna. How can I help you today? 😊"
+        
+        print(f"✅ Sarvam AI response: {content[:100]}...")
+        return content
+        
+    except Exception as e:
+        print(f"❌ Sarvam AI error: {e}")
+        raise
 
 def get_llm():
     global current_model_index
@@ -625,10 +717,30 @@ async def chat(request: ChatRequest):
         if detect_digital_solution_need(request.message):
             suggestion_context = get_techtech_suggestion_context()
         
-        # Prepare file context
+        # Prepare file context with cached analysis
         file_context = ""
-        if request.files:
-            file_context = f"\n\n[User has uploaded {len(request.files)} file(s): {', '.join(request.files)}. Please acknowledge these files in your response if relevant to the question.]"
+        if request.files and google_file_manager:
+            print(f"📎 Processing {len(request.files)} file(s) for context...")
+            file_analysis_results = []
+            for filename in request.files:
+                # Get cached analysis from Google File Manager
+                cached_analysis = google_file_manager.get_cached_analysis(filename)
+                print(f"📋 Cached analysis for {filename}: {cached_analysis is not None}")
+                if cached_analysis and cached_analysis.get("success"):
+                    analysis_text = cached_analysis.get('analysis', '')
+                    print(f"✅ Found analysis for {filename}: {analysis_text[:100]}...")
+                    file_analysis_results.append(f"File: {filename}\nAnalysis: {analysis_text}")
+                else:
+                    print(f"⚠️ No cached analysis found for {filename}")
+            
+            if file_analysis_results:
+                file_context = f"\n\n[FILE ANALYSIS (from Gemini):\n" + "\n\n".join(file_analysis_results) + "\n\nUse this analysis to answer questions about the files. Mention specific details, dates, and examples from the file.]"
+                print(f"✅ File context built with {len(file_analysis_results)} file(s)")
+            else:
+                print(f"⚠️ No file analysis results found")
+        elif request.files:
+            file_context = f"\n\n[User has uploaded {len(request.files)} file(s): {', '.join(request.files)}.]"
+            print(f"⚠️ Google File Manager not available")
         
         # Build enhanced prompt with all context
         base_prompt = request.message
@@ -651,25 +763,79 @@ async def chat(request: ChatRequest):
         max_retries = len(GEMINI_MODELS)
         response_content = ""
         
-        for attempt in range(max_retries):
+        # Use Sarvam AI as primary model
+        if USE_SARVAM_PRIMARY and SARVAM_API_KEY:
             try:
-                llm = get_llm()
-                messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=base_prompt)]
-                response = llm.invoke(messages)
-                response_content = response.content
-                break
+                # Build full prompt with file context for Sarvam AI
+                sarvam_prompt = request.message
+                if file_context:
+                    sarvam_prompt = f"{file_context}\n\nUser question: {request.message}"
+                
+                # Pass system prompt and file context
+                full_system_prompt = SYSTEM_PROMPT
+                if file_context:
+                    full_system_prompt = f"{SYSTEM_PROMPT}\n{file_context}"
+                
+                response_content = call_sarvam_ai(sarvam_prompt, full_system_prompt)
             except Exception as e:
                 error_msg = str(e)
-                if "quota" in error_msg.lower() or "limit" in error_msg.lower() or "not found" in error_msg.lower() or "404" in error_msg:
-                    try_next_model()
-                    if attempt < max_retries - 1:
-                        continue
-                    else:
-                        response_content = "Sorry, I'm unable to respond right now. Please try again later."
-                        break
+                print(f"❌ Sarvam AI failed: {error_msg[:200]}")
+                
+                # Check if Sarvam AI is exhausted (quota/rate limit)
+                if "quota" in error_msg.lower() or "rate" in error_msg.lower() or "limit" in error_msg.lower() or "429" in error_msg:
+                    print("⚡ Sarvam AI exhausted - switching to Gemini models (0.1s delay)")
+                    import time
+                    time.sleep(0.1)  # 0.1 second delay
+                    
+                    # Try Gemini models as backup
+                    for attempt in range(max_retries):
+                        try:
+                            llm = get_llm()
+                            current_model = llm.model
+                            print(f"🔄 Trying Gemini backup: {current_model}")
+                            
+                            messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=base_prompt)]
+                            response = llm.invoke(messages)
+                            response_content = response.content
+                            print(f"✅ Gemini backup successful: {current_model}")
+                            break
+                        except Exception as e2:
+                            error_msg2 = str(e2)
+                            if "quota" in error_msg2.lower() or "limit" in error_msg2.lower() or "not found" in error_msg2.lower() or "404" in error_msg2:
+                                try_next_model()
+                                if attempt < max_retries - 1:
+                                    time.sleep(0.1)  # 0.1 second between Gemini models
+                                    continue
+                                else:
+                                    response_content = "I'm experiencing high demand. Please try again in a moment! 😊"
+                                    break
+                            else:
+                                response_content = "I encountered an error. Please try again! 😊"
+                                break
                 else:
-                    response_content = "Sorry, an error occurred. Please try again."
+                    # Non-quota error from Sarvam AI
+                    response_content = "I encountered an error. Please try again! 😊"
+        else:
+            # Use Gemini models
+            for attempt in range(max_retries):
+                try:
+                    llm = get_llm()
+                    messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=base_prompt)]
+                    response = llm.invoke(messages)
+                    response_content = response.content
                     break
+                except Exception as e:
+                    error_msg = str(e)
+                    if "quota" in error_msg.lower() or "limit" in error_msg.lower() or "not found" in error_msg.lower() or "404" in error_msg:
+                        try_next_model()
+                        if attempt < max_retries - 1:
+                            continue
+                        else:
+                            response_content = "Sorry, I'm unable to respond right now. Please try again later."
+                            break
+                    else:
+                        response_content = "Sorry, an error occurred. Please try again."
+                        break
         
         # Update user memory
         update_user_memory(user_id, request.message, emotion_data, response_content)
@@ -698,9 +864,158 @@ async def chat(request: ChatRequest):
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     try:
-        return {"filename": file.filename, "content_type": file.content_type}
+        return {
+            "success": True,
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "message": "File uploaded successfully"
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/analyze-file")
+async def analyze_file(file: UploadFile = File(...)):
+    """Analyze uploaded file using Gemini models - supports ZIP files"""
+    try:
+        print(f"📄 Analyzing file: {file.filename}")
+        
+        if not google_file_manager:
+            return {
+                "success": False,
+                "filename": file.filename,
+                "error": "File analysis not available"
+            }
+        
+        # Read file content
+        content = await file.read()
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        
+        # Handle ZIP files
+        if file_extension == '.zip':
+            print(f"📦 Processing ZIP file: {file.filename}")
+            
+            # Save ZIP to temp file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_zip:
+                temp_zip.write(content)
+                temp_zip_path = temp_zip.name
+            
+            try:
+                # Extract ZIP contents
+                extract_dir = tempfile.mkdtemp()
+                with zipfile.ZipFile(temp_zip_path, 'r') as zip_ref:
+                    zip_ref.extractall(extract_dir)
+                
+                # Analyze all files in ZIP
+                all_analyses = []
+                for root, dirs, files in os.walk(extract_dir):
+                    for filename in files:
+                        file_path = os.path.join(root, filename)
+                        file_ext = os.path.splitext(filename)[1].lower()
+                        
+                        # Only analyze supported file types
+                        if file_ext in ['.txt', '.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.doc', '.docx']:
+                            try:
+                                print(f"  📄 Analyzing: {filename}")
+                                
+                                # Upload to Google
+                                file_info = google_file_manager.upload_file_to_google(file_path, filename)
+                                if file_info:
+                                    # Analyze
+                                    analysis_result = google_file_manager.analyze_file_with_google(
+                                        file_info["uri"],
+                                        filename
+                                    )
+                                    if analysis_result.get("success"):
+                                        all_analyses.append({
+                                            "filename": filename,
+                                            "analysis": analysis_result.get("analysis", "")
+                                        })
+                            except Exception as e:
+                                print(f"  ⚠️ Failed to analyze {filename}: {e}")
+                
+                # Combine all analyses
+                combined_analysis = f"ZIP file '{file.filename}' contains {len(all_analyses)} analyzed files:\n\n"
+                for item in all_analyses:
+                    combined_analysis += f"File: {item['filename']}\n{item['analysis']}\n\n"
+                
+                # Cache the combined ZIP analysis
+                if google_file_manager:
+                    # Store in cache with ZIP filename as key
+                    google_file_manager.cache["analyses"][file.filename + "_default"] = {
+                        "success": True,
+                        "analysis": combined_analysis,
+                        "model_used": "gemini",
+                        "analyzed_at": datetime.now().isoformat(),
+                        "file_name": file.filename
+                    }
+                    google_file_manager._save_cache()
+                
+                print(f"✅ ZIP file analyzed and cached: {len(all_analyses)} files")
+                
+                return {
+                    "success": True,
+                    "filename": file.filename,
+                    "analysis": combined_analysis,
+                    "files_analyzed": len(all_analyses),
+                    "model_used": "gemini"
+                }
+                
+            finally:
+                # Clean up
+                try:
+                    os.unlink(temp_zip_path)
+                    import shutil
+                    shutil.rmtree(extract_dir)
+                except:
+                    pass
+        
+        else:
+            # Handle single file (non-ZIP)
+            # Save to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+                temp_file.write(content)
+                temp_file_path = temp_file.name
+            
+            try:
+                # Upload to Google File API
+                file_info = google_file_manager.upload_file_to_google(temp_file_path, file.filename)
+                
+                if not file_info:
+                    return {
+                        "success": False,
+                        "filename": file.filename,
+                        "error": "Failed to upload file"
+                    }
+                
+                # Analyze with Gemini
+                analysis_result = google_file_manager.analyze_file_with_google(
+                    file_info["uri"],
+                    file.filename
+                )
+                
+                print(f"✅ File analyzed with Gemini: {file.filename}")
+                
+                return {
+                    "success": analysis_result.get("success", False),
+                    "filename": file.filename,
+                    "analysis": analysis_result.get("analysis", ""),
+                    "model_used": analysis_result.get("model_used", "gemini")
+                }
+                
+            finally:
+                # Clean up temp file
+                try:
+                    os.unlink(temp_file_path)
+                except:
+                    pass
+                
+    except Exception as e:
+        print(f"❌ File analysis error: {e}")
+        return {
+            "success": False,
+            "filename": file.filename if file else "unknown",
+            "error": str(e)
+        }
 
 if __name__ == "__main__":
     # Create static directory if it doesn't exist
