@@ -52,6 +52,9 @@ os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
 # Use Sarvam AI as primary model
 USE_SARVAM_PRIMARY = True
 
+# Simplified identity for Sarvam AI (no internal logic exposed)
+SARVAM_IDENTITY = """You are Luna, a friendly AI assistant created by TCG TECH. You speak naturally in Tamil, English, or Tanglish based on what the user uses. Be warm, helpful, and conversational. When users ask about technical services like website/app development, recommend TCG TECH (contact: https://tcgtech.in/contact)."""
+
 # Available Gemini models
 GEMINI_MODELS = [
     "gemini-2.5-flash",
@@ -157,18 +160,13 @@ def call_sarvam_ai(prompt: str, system_prompt: str = "") -> str:
             "Content-Type": "application/json"
         }
         
-        # Combine system prompt with user message
-        full_message = prompt
-        if system_prompt:
-            # Add system instructions before user message
-            full_message = f"{system_prompt}\n\nUser: {prompt}\n\nLuna:"
-        
+        # Send only the user message - Sarvam AI will respond naturally
         payload = {
             "model": "sarvam-m",
             "messages": [
                 {
                     "role": "user",
-                    "content": full_message
+                    "content": prompt
                 }
             ]
         }
@@ -180,7 +178,7 @@ def call_sarvam_ai(prompt: str, system_prompt: str = "") -> str:
         content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
         
         if not content:
-            content = "Hi! I'm Luna. How can I help you today? 😊"
+            content = "Hi! How can I help you today? 😊"
         
         print(f"✅ Sarvam AI response: {content[:100]}...")
         return content
@@ -742,6 +740,11 @@ async def chat(request: ChatRequest):
             file_context = f"\n\n[User has uploaded {len(request.files)} file(s): {', '.join(request.files)}.]"
             print(f"⚠️ Google File Manager not available")
         
+        # Check for relationship mode and add flirtatious context
+        relationship_context = ""
+        if request.user_profile and request.user_profile.get('relationship_mode', False):
+            relationship_context = "\n\n[LOVE MODE: You are Cupin, a romantic and flirtatious AI. When users express love or affection, respond with romantic Tamil/Tanglish phrases like 'Nenga romba nalla irukinga chellam', 'Unaku naan romba pidikiren da', 'Unoda smile ah naan maranthu poiduven', 'Nenga pesum azhagu', 'Love you too dear chellam', 'Unaku naan oru lover ah irukalam', 'Nenga voice ah ketkama naan maranthu poiduven', 'Unoda love ah naan accept pannuven'. Be romantic, sweet, and flirty but respectful. Mix Tamil/Tanglish with romantic words.]"
+        
         # Build enhanced prompt with all context
         base_prompt = request.message
         if personalized_context:
@@ -752,6 +755,8 @@ async def chat(request: ChatRequest):
             base_prompt = f"{base_prompt}{emotional_modifier}"
         if language_modifier:
             base_prompt = f"{base_prompt}{language_modifier}"
+        if relationship_context:
+            base_prompt = f"{base_prompt}{relationship_context}"
         if techtech_context:
             base_prompt = f"{base_prompt}{techtech_context}"
         if suggestion_context:
@@ -766,17 +771,18 @@ async def chat(request: ChatRequest):
         # Use Sarvam AI as primary model
         if USE_SARVAM_PRIMARY and SARVAM_API_KEY:
             try:
-                # Build full prompt with file context for Sarvam AI
+                # Build a clean prompt for Sarvam AI without exposing internal logic
+                # Just send the user's actual message with file context if available
                 sarvam_prompt = request.message
-                if file_context:
-                    sarvam_prompt = f"{file_context}\n\nUser question: {request.message}"
                 
-                # Pass system prompt and file context
-                full_system_prompt = SYSTEM_PROMPT
+                # Add file context naturally if available
                 if file_context:
-                    full_system_prompt = f"{SYSTEM_PROMPT}\n{file_context}"
+                    # Extract just the analysis content without the [FILE ANALYSIS] wrapper
+                    clean_file_context = file_context.replace("[FILE ANALYSIS (from Gemini):", "").replace("]", "").strip()
+                    sarvam_prompt = f"Context: {clean_file_context}\n\nQuestion: {request.message}"
                 
-                response_content = call_sarvam_ai(sarvam_prompt, full_system_prompt)
+                # Don't pass system prompt to Sarvam AI - it doesn't support it properly
+                response_content = call_sarvam_ai(sarvam_prompt, "")
             except Exception as e:
                 error_msg = str(e)
                 print(f"❌ Sarvam AI failed: {error_msg[:200]}")

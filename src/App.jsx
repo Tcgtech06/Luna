@@ -429,23 +429,21 @@ function App() {
         timestamp: new Date().toISOString()
       }]
     } else {
-      // Update existing chat entry
+      // Update existing chat
       updatedHistory = chatHistory.map(chat => 
         chat.id === chatId 
           ? { ...chat, messages: updatedMessages, timestamp: new Date().toISOString() }
           : chat
       )
     }
+    
     setChatHistory(updatedHistory)
-
-    // Create new AbortController for this request
+    setCurrentChatId(chatId)
+    
     abortControllerRef.current = new AbortController()
     let messageWithInstruction = messageText + getLanguageInstruction()
     
-    // Add relationship consultant context if mode is active
-    if (isRelationshipMode) {
-      messageWithInstruction += ' [RELATIONSHIP CONSULTANT MODE: You are Luna, a calm and wise relationship consultant. Provide gentle, thoughtful relationship advice in 1-2 lines. Be supportive but composed, like a trusted friend with quiet wisdom.]'
-    }
+    // Remove old relationship mode instruction - let backend handle it
 
     try {
       console.log('Sending request to:', `${API_BASE_URL}/chat`) // Debug log

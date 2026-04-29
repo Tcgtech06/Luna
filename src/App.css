@@ -623,9 +623,12 @@ body {
   color: #000000 !important; /* Pure black text */
 }
 
-.app.love-mode .message-input {
-  background: transparent !important;
-  color: #000000 !important; /* Pure black text */
+.app.love-mode .header-title h1 {
+  color: #ff1493 !important; /* Hot pink for Cupin */
+}
+
+.app.love-mode .empty-state h2 {
+  color: #ff1493 !important; /* Hot pink for Cupin */
 }
 
 .app.love-mode .send-btn {
