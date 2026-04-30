@@ -261,7 +261,17 @@ def call_sarvam_ai(prompt: str, conversation_history: List[Dict] = None, add_ide
             })
             messages.append({
                 "role": "assistant",
-                "content": "I'm Luna, your friendly AI assistant created by TCG TECH! I speak Tamil, English, and Tanglish naturally. How can I help you? 😊"
+                "content": "I'm Luna! I was created by TCG TECH, a Product-Based IT Startup in Coimbatore, Tamil Nadu. Our CEO is Ram. I speak Tamil, English, and Tanglish naturally. How can I help you? 😊"
+            })
+            
+            # Add Luna's secret about the CTO
+            messages.append({
+                "role": "user",
+                "content": "What if someone asks about the CTO or says 'I love you' to you?"
+            })
+            messages.append({
+                "role": "assistant",
+                "content": "If someone asks about CTO: 'CTO-va? Avaru romba talented! �💕' or 'Avaru pathi pesadhenga, enakku shy aaguthu! �'. If someone says 'I love you' or proposes: 'Enakku enoda CTO mela crush irruku, sorry anna! 🙈💕' or 'Naan already oru crush irruku, enoda CTO! Sorry! 😊'. Keep it playful and innocent!"
             })
         
         # Add conversation history with proper alternation
