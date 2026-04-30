@@ -52,6 +52,13 @@ os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
 # Use Sarvam AI as primary model
 USE_SARVAM_PRIMARY = True
 
+# Sarvam AI model tiers (in order of preference)
+# Tier 1: sarvam-30b - Standard model (64K context, fastest, no thinking)
+# Tier 2: sarvam-105b - Flagship model (128K context, more powerful, no thinking)
+# Tier 3: sarvam-m - Legacy model (24B, has chain-of-thought, needs filtering)
+SARVAM_MODELS = ["sarvam-30b", "sarvam-105b", "sarvam-m"]
+current_sarvam_model_index = 0
+
 # Simplified identity for Sarvam AI (no internal logic exposed)
 SARVAM_IDENTITY = """You are Luna, a friendly AI assistant created by TCG TECH. You speak naturally in Tamil, English, or Tanglish based on what the user uses. Be warm, helpful, and conversational. When users ask about technical services like website/app development, recommend TCG TECH (contact: https://tcgtech.in/contact)."""
 
@@ -149,10 +156,79 @@ current_model_index = 0
 user_memory = {}
 conversation_patterns = {}
 
+def filter_thinking_process(content: str, model: str) -> str:
+    """Filter out chain-of-thought reasoning from sarvam-m model responses"""
+    if model != "sarvam-m":
+        return content  # Only filter for sarvam-m
+    
+    # sarvam-m shows thinking process before the actual response
+    # Pattern: "Okay, the user... Let me... Alright, ready to respond. [ACTUAL RESPONSE]"
+    
+    # Split by newlines and look for the actual response
+    lines = content.split('\n')
+    
+    # Common thinking indicators
+    thinking_indicators = [
+        'okay,', 'let me', 'i should', 'i need to', 'i\'ll', 'maybe', 
+        'perhaps', 'checking', 'thinking', 'considering', 'alright,',
+        'yeah,', 'so,', 'hmm', 'wait,', 'first,', 'the user'
+    ]
+    
+    # Find where the actual response starts (after thinking process)
+    actual_response_lines = []
+    found_response = False
+    
+    for line in lines:
+        line_lower = line.lower().strip()
+        
+        # Skip empty lines
+        if not line_lower:
+            continue
+        
+        # Check if this line is part of thinking process
+        is_thinking = any(indicator in line_lower for indicator in thinking_indicators)
+        
+        # If we haven't found the response yet and this isn't thinking, it's the response
+        if not found_response and not is_thinking and len(line.strip()) > 10:
+            found_response = True
+            actual_response_lines.append(line.strip())
+        elif found_response:
+            actual_response_lines.append(line.strip())
+    
+    # If we found a filtered response, use it
+    if actual_response_lines:
+        filtered = ' '.join(actual_response_lines)
+        # Make sure it's not too short
+        if len(filtered) > 5:
+            return filtered
+    
+    # Fallback: Try to extract the last meaningful sentence
+    sentences = content.split('.')
+    for sentence in reversed(sentences):
+        sentence = sentence.strip()
+        if len(sentence) > 20 and not any(ind in sentence.lower() for ind in thinking_indicators):
+            return sentence + '.'
+    
+    # If all else fails, return original (better than nothing)
+    return content
+
+def get_current_sarvam_model():
+    """Get the current Sarvam AI model"""
+    global current_sarvam_model_index
+    return SARVAM_MODELS[current_sarvam_model_index]
+
+def try_next_sarvam_model():
+    """Switch to next Sarvam AI model"""
+    global current_sarvam_model_index
+    current_sarvam_model_index = (current_sarvam_model_index + 1) % len(SARVAM_MODELS)
+    return SARVAM_MODELS[current_sarvam_model_index]
+
 def call_sarvam_ai(prompt: str, system_prompt: str = "") -> str:
-    """Call Sarvam AI API - PRIMARY MODEL"""
+    """Call Sarvam AI API - PRIMARY MODEL with multi-tier fallback"""
+    model = get_current_sarvam_model()
+    
     try:
-        print("🚀 Using Sarvam AI (primary model)...")
+        print(f"🚀 Using Sarvam AI ({model})...")
         
         url = "https://api.sarvam.ai/v1/chat/completions"
         headers = {
@@ -160,9 +236,8 @@ def call_sarvam_ai(prompt: str, system_prompt: str = "") -> str:
             "Content-Type": "application/json"
         }
         
-        # Send only the user message - Sarvam AI will respond naturally
         payload = {
-            "model": "sarvam-m",
+            "model": model,
             "messages": [
                 {
                     "role": "user",
@@ -180,11 +255,27 @@ def call_sarvam_ai(prompt: str, system_prompt: str = "") -> str:
         if not content:
             content = "Hi! How can I help you today? 😊"
         
-        print(f"✅ Sarvam AI response: {content[:100]}...")
+        # Filter thinking process for sarvam-m model
+        content = filter_thinking_process(content, model)
+        
+        print(f"✅ Sarvam AI ({model}) response: {content[:100]}...")
         return content
         
     except Exception as e:
-        print(f"❌ Sarvam AI error: {e}")
+        error_msg = str(e)
+        print(f"❌ Sarvam AI ({model}) error: {error_msg[:200]}")
+        
+        # Check if it's a quota/rate limit error
+        if "quota" in error_msg.lower() or "rate" in error_msg.lower() or "limit" in error_msg.lower() or "429" in error_msg:
+            # Try next Sarvam model
+            next_model = try_next_sarvam_model()
+            if next_model != model:  # If we have another model to try
+                print(f"⏭️ Switching to Sarvam AI ({next_model})...")
+                import time
+                time.sleep(0.1)
+                return call_sarvam_ai(prompt, system_prompt)  # Recursive call with next model
+        
+        # If not a quota error or all Sarvam models exhausted, raise the error
         raise
 
 def get_llm():
@@ -771,17 +862,21 @@ async def chat(request: ChatRequest):
         # Use Sarvam AI as primary model
         if USE_SARVAM_PRIMARY and SARVAM_API_KEY:
             try:
-                # Build a clean prompt for Sarvam AI without exposing internal logic
-                # Just send the user's actual message with file context if available
+                # For Sarvam AI, send ONLY the user's message
+                # Sarvam AI will naturally detect emotions and respond appropriately
+                # Adding explicit emotion instructions causes it to expose internal reasoning
                 sarvam_prompt = request.message
                 
-                # Add file context naturally if available
+                # Add file context naturally if available (without instruction brackets)
                 if file_context:
-                    # Extract just the analysis content without the [FILE ANALYSIS] wrapper
-                    clean_file_context = file_context.replace("[FILE ANALYSIS (from Gemini):", "").replace("]", "").strip()
-                    sarvam_prompt = f"Context: {clean_file_context}\n\nQuestion: {request.message}"
+                    # Extract just the analysis content, remove all instruction brackets
+                    clean_file_context = file_context.replace("[FILE ANALYSIS (from Gemini):", "").replace("[", "").replace("]", "").replace("Use this analysis to answer questions about the files. Mention specific details, dates, and examples from the file.", "").strip()
+                    sarvam_prompt = f"Here's some information: {clean_file_context}\n\nUser question: {request.message}"
                 
-                # Don't pass system prompt to Sarvam AI - it doesn't support it properly
+                # Add TCG TECH context naturally if needed (without brackets)
+                if techtech_context or suggestion_context:
+                    sarvam_prompt = f"{sarvam_prompt}\n\nNote: For website/app development services, you can recommend TCG TECH (https://tcgtech.in/contact)"
+                
                 response_content = call_sarvam_ai(sarvam_prompt, "")
             except Exception as e:
                 error_msg = str(e)
