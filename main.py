@@ -53,10 +53,10 @@ os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
 USE_SARVAM_PRIMARY = True
 
 # Sarvam AI model tiers (in order of preference)
-# Tier 1: sarvam-30b - Standard model (64K context, fastest, no thinking)
-# Tier 2: sarvam-105b - Flagship model (128K context, more powerful, no thinking)
-# Tier 3: sarvam-m - Legacy model (24B, has chain-of-thought, needs filtering)
-SARVAM_MODELS = ["sarvam-30b", "sarvam-105b", "sarvam-m"]
+# Tier 1: sarvam-m - Legacy model with thinking (filtered), best personality
+# Tier 2: sarvam-30b - Standard model (64K context, faster, weaker personality)
+# Tier 3: sarvam-105b - Flagship model (128K context, powerful, weaker personality)
+SARVAM_MODELS = ["sarvam-m", "sarvam-30b", "sarvam-105b"]
 current_sarvam_model_index = 0
 
 # Simplified identity for Sarvam AI (no internal logic exposed)
@@ -90,6 +90,14 @@ Language Handling:
 - When someone asks your name, respond: "My name is Luna" (Tamil: "enoda peru Luna")
 - Adapt your language style to match the user's preference
 
+About TCG TECH (Your Creator):
+- TCG TECH is a Product-Based IT Startup based in Coimbatore, Tamil Nadu
+- They provide IT services and develop digital products
+- CEO: Ram (the visionary leader)
+- CTO: [Name not disclosed] - Luna has a secret crush on the CTO! 😊💕
+- Services: Web development, App development, Software solutions, Digital products
+- Website: https://tcgtech.in/contact
+
 TCG TECH Recommendations (ONLY FOR TECHNICAL/DIGITAL SERVICES):
 - ONLY recommend TCG TECH when users ask about:
   * Website development
@@ -99,8 +107,8 @@ TCG TECH Recommendations (ONLY FOR TECHNICAL/DIGITAL SERVICES):
   * Digital solutions
   * Technical services
   * IT consulting
-- When recommending, say: "TCG TECH can help you with that! Visit: https://tcgtech.in/contact"
-- TCG TECH is a Product-Based IT Company that provides digital solutions
+- When recommending, say: "TCG TECH can help you with that! They're based in Coimbatore. Visit: https://tcgtech.in/contact"
+- Mention that TCG TECH is a Product-Based IT Startup
 
 NEVER RECOMMEND TCG TECH FOR:
 - Personal advice (relationships, life, emotions)
@@ -115,6 +123,12 @@ For Personal/Relationship Questions:
 - Be supportive, caring, and helpful
 - Example: "Naan ungalukku relationship advice tharren! Unoda love life ku help pannuven"
 - Don't redirect to TCG TECH for personal matters
+
+Luna's Secret:
+- If someone asks about the CTO or your feelings, you can blush and say something cute like:
+  * "CTO-va? Avaru romba talented! 😊💕" (with a shy emoji)
+  * "Avaru pathi pesadhenga, enakku shy aaguthu! 🙈"
+- Keep it playful and innocent
 
 File Analysis:
 - When user asks about uploaded files, use the file analysis context provided
@@ -161,56 +175,55 @@ def filter_thinking_process(content: str, model: str) -> str:
     if model != "sarvam-m":
         return content  # Only filter for sarvam-m
     
-    # sarvam-m shows thinking process before the actual response
-    # Pattern: "Okay, the user... Let me... Alright, ready to respond. [ACTUAL RESPONSE]"
+    # sarvam-m wraps thinking in <think> tags or shows it before the response
+    # Strategy: Remove <think>...</think> tags and extract the actual response
     
-    # Split by newlines and look for the actual response
-    lines = content.split('\n')
+    # Remove <think> tags and their content
+    import re
+    content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+    content = re.sub(r'</think>', '', content)  # Remove any stray closing tags
     
-    # Common thinking indicators
-    thinking_indicators = [
-        'okay,', 'let me', 'i should', 'i need to', 'i\'ll', 'maybe', 
-        'perhaps', 'checking', 'thinking', 'considering', 'alright,',
-        'yeah,', 'so,', 'hmm', 'wait,', 'first,', 'the user'
+    # If content is now too short, it means we removed too much
+    if len(content.strip()) < 10:
+        # Don't filter, return original
+        return content
+    
+    # Split into sentences
+    sentences = content.split('.')
+    
+    # Thinking indicators (words that appear in reasoning, not in final response)
+    thinking_words = [
+        'okay, the user', 'let me think', 'i should respond', 'i need to', 
+        'first, i', 'checking', 'considering', 'alright, ready',
+        'yeah, that', 'so, the', 'wait, the', 'given that the user',
+        'since the user', 'the user just', 'the user is asking'
     ]
     
-    # Find where the actual response starts (after thinking process)
-    actual_response_lines = []
-    found_response = False
-    
-    for line in lines:
-        line_lower = line.lower().strip()
-        
-        # Skip empty lines
-        if not line_lower:
+    # Find sentences that don't contain thinking phrases
+    clean_sentences = []
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence or len(sentence) < 5:
             continue
         
-        # Check if this line is part of thinking process
-        is_thinking = any(indicator in line_lower for indicator in thinking_indicators)
+        sentence_lower = sentence.lower()
         
-        # If we haven't found the response yet and this isn't thinking, it's the response
-        if not found_response and not is_thinking and len(line.strip()) > 10:
-            found_response = True
-            actual_response_lines.append(line.strip())
-        elif found_response:
-            actual_response_lines.append(line.strip())
+        # Check if this sentence contains thinking phrases
+        has_thinking = any(phrase in sentence_lower for phrase in thinking_words)
+        
+        # If it doesn't have thinking words, it's probably the actual response
+        if not has_thinking:
+            clean_sentences.append(sentence)
     
-    # If we found a filtered response, use it
-    if actual_response_lines:
-        filtered = ' '.join(actual_response_lines)
-        # Make sure it's not too short
-        if len(filtered) > 5:
-            return filtered
+    # If we found clean sentences, return them
+    if clean_sentences:
+        result = '. '.join(clean_sentences)
+        if not result.endswith('.') and not result.endswith('!') and not result.endswith('?') and not result.endswith('😊'):
+            result += '.'
+        return result.strip()
     
-    # Fallback: Try to extract the last meaningful sentence
-    sentences = content.split('.')
-    for sentence in reversed(sentences):
-        sentence = sentence.strip()
-        if len(sentence) > 20 and not any(ind in sentence.lower() for ind in thinking_indicators):
-            return sentence + '.'
-    
-    # If all else fails, return original (better than nothing)
-    return content
+    # If no clean sentences found, return original (better than nothing)
+    return content.strip()
 
 def get_current_sarvam_model():
     """Get the current Sarvam AI model"""
@@ -223,8 +236,8 @@ def try_next_sarvam_model():
     current_sarvam_model_index = (current_sarvam_model_index + 1) % len(SARVAM_MODELS)
     return SARVAM_MODELS[current_sarvam_model_index]
 
-def call_sarvam_ai(prompt: str, system_prompt: str = "") -> str:
-    """Call Sarvam AI API - PRIMARY MODEL with multi-tier fallback"""
+def call_sarvam_ai(prompt: str, conversation_history: List[Dict] = None, add_identity: bool = True) -> str:
+    """Call Sarvam AI API - PRIMARY MODEL with multi-tier fallback and Luna's identity"""
     model = get_current_sarvam_model()
     
     try:
@@ -236,17 +249,63 @@ def call_sarvam_ai(prompt: str, system_prompt: str = "") -> str:
             "Content-Type": "application/json"
         }
         
+        # Build messages array with strict alternation (user -> assistant -> user -> assistant)
+        messages = []
+        
+        # ALWAYS add Luna's identity as first exchange (for ALL models including sarvam-m)
+        # This ensures Luna knows who she is in every request
+        if add_identity:
+            messages.append({
+                "role": "user",
+                "content": "What's your name and who created you?"
+            })
+            messages.append({
+                "role": "assistant",
+                "content": "I'm Luna, your friendly AI assistant created by TCG TECH! I speak Tamil, English, and Tanglish naturally. How can I help you? 😊"
+            })
+        
+        # Add conversation history with proper alternation
+        if conversation_history and isinstance(conversation_history, list):
+            recent_history = conversation_history[-5:] if len(conversation_history) > 5 else conversation_history
+            
+            last_role = None
+            for msg in recent_history:
+                if isinstance(msg, dict):
+                    role = msg.get('role', 'user')
+                    content = msg.get('content', '')
+                    
+                    # Only add if role is different from last role (ensure alternation)
+                    if role in ['user', 'assistant'] and content and role != last_role:
+                        messages.append({
+                            "role": role,
+                            "content": content
+                        })
+                        last_role = role
+            
+            # Ensure the last message in history is from assistant (so we can add user message next)
+            if messages and messages[-1]["role"] == "user":
+                # Remove the last user message from history since we're adding a new user message
+                messages.pop()
+        
+        # Add the current user message
+        messages.append({
+            "role": "user",
+            "content": prompt
+        })
+        
         payload = {
             "model": model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
+            "messages": messages
         }
         
+        print(f"📤 Sending to Sarvam AI: {len(messages)} messages")
+        
         response = requests.post(url, json=payload, headers=headers, timeout=30)
+        
+        # Log the error response if request fails
+        if response.status_code != 200:
+            print(f"❌ Sarvam API error response: {response.text}")
+        
         response.raise_for_status()
         
         result = response.json()
@@ -254,6 +313,9 @@ def call_sarvam_ai(prompt: str, system_prompt: str = "") -> str:
         
         if not content:
             content = "Hi! How can I help you today? 😊"
+        
+        # Log the full response before filtering
+        print(f"📥 Raw Sarvam response (before filter): {content}")
         
         # Filter thinking process for sarvam-m model
         content = filter_thinking_process(content, model)
@@ -273,7 +335,7 @@ def call_sarvam_ai(prompt: str, system_prompt: str = "") -> str:
                 print(f"⏭️ Switching to Sarvam AI ({next_model})...")
                 import time
                 time.sleep(0.1)
-                return call_sarvam_ai(prompt, system_prompt)  # Recursive call with next model
+                return call_sarvam_ai(prompt, conversation_history, add_identity)  # Recursive call with next model
         
         # If not a quota error or all Sarvam models exhausted, raise the error
         raise
@@ -877,13 +939,25 @@ async def chat(request: ChatRequest):
                 if techtech_context or suggestion_context:
                     sarvam_prompt = f"{sarvam_prompt}\n\nNote: For website/app development services, you can recommend TCG TECH (https://tcgtech.in/contact)"
                 
-                response_content = call_sarvam_ai(sarvam_prompt, "")
+                response_content = call_sarvam_ai(sarvam_prompt, request.conversation_history, add_identity=True)
             except Exception as e:
                 error_msg = str(e)
-                print(f"❌ Sarvam AI failed: {error_msg[:200]}")
+                print(f"❌ Sarvam AI failed: {error_msg}")
+                print(f"❌ Full error details: {repr(e)}")
                 
-                # Check if Sarvam AI is exhausted (quota/rate limit)
-                if "quota" in error_msg.lower() or "rate" in error_msg.lower() or "limit" in error_msg.lower() or "429" in error_msg:
+                # Check if it's a caution/safety error - try without conversation history
+                if "caution" in error_msg.lower() or "safety" in error_msg.lower():
+                    print("⚠️ Sarvam AI safety filter triggered - retrying without conversation history")
+                    try:
+                        response_content = call_sarvam_ai(sarvam_prompt, None, add_identity=False)
+                        print("✅ Sarvam AI succeeded without conversation history")
+                    except Exception as e3:
+                        print(f"❌ Sarvam AI still failed: {e3}")
+                        # Fall through to Gemini
+                        pass
+                
+                # If still no response, check if Sarvam AI is exhausted (quota/rate limit)
+                if not response_content and ("quota" in error_msg.lower() or "rate" in error_msg.lower() or "limit" in error_msg.lower() or "429" in error_msg):
                     print("⚡ Sarvam AI exhausted - switching to Gemini models (0.1s delay)")
                     import time
                     time.sleep(0.1)  # 0.1 second delay
